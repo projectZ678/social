@@ -179,7 +179,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     return out;
   }
 
-  /* ---------- profile extraction (aggressive) ---------- */
+  /* ---------- profile extraction ---------- */
   function pickValue(doc, selectors, isValid) {
     for (const sel of selectors) {
       let el = null;
@@ -199,7 +199,6 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
       (doc.body?.getAttribute("data-" + name) ||
        doc.documentElement.getAttribute("data-" + name) || "").trim();
 
-    // JSON-LD / inline JSON blobs
     const jsonBlobs = [];
     doc.querySelectorAll('script[type="application/ld+json"], script[type="application/json"]').forEach(s => {
       try { jsonBlobs.push(JSON.parse(s.textContent)); } catch {}
@@ -215,7 +214,6 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
       return "";
     };
 
-    // Inline script assignments like: name: "cam", handle: "@doxxing"
     const scriptText = [...doc.querySelectorAll("script:not([src])")]
       .map(s => s.textContent || "").join("\n");
     const grab = keys => {
@@ -310,18 +308,108 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     return { title, handle, description, image: absoluteAsset(image, file) };
   }
 
+  /* ---------- discord id discovery (raw source scan) ---------- */
+  function findDiscordId(src) {
+    const patterns = [
+      /discord(?:app)?\.com\/users\/(\d{15,20})/i,
+      /lanyard\.rest\/v1\/users\/(\d{15,20})/i,
+      /cdn\.discordapp\.com\/avatars\/(\d{15,20})\//i,
+      /dcdn\.dstn\.to\/[a-z]+\/(\d{15,20})/i,
+      /discord[\w-]*["'`]?\s*[:=]\s*["'`]?(\d{15,20})/i,
+      /(?:user[_-]?id|userid|uid|snowflake)["'`]?\s*[:=]\s*["'`]?(\d{15,20})/i,
+      /["'`](\d{17,20})["'`]/,
+      /\b(\d{17,20})\b/
+    ];
+    for (const re of patterns) {
+      const m = src.match(re);
+      if (m) return m[1];
+    }
+    return "";
+  }
+
+  function findRawAvatar(src, id) {
+    const re = new RegExp("cdn\\.discordapp\\.com/avatars/" + id + "/([\\w]+)\\.(png|jpe?g|gif|webp)", "i");
+    const m = src.match(re);
+    return m ? `https://cdn.discordapp.com/avatars/${id}/${m[1]}.${m[2]}?size=256` : "";
+  }
+
+  const defaultDiscordAvatar = id => {
+    try { return `https://cdn.discordapp.com/embed/avatars/${Number((BigInt(id) >> 22n) % 6n)}.png`; }
+    catch { return DEFAULT_AVATAR; }
+  };
+
+  const avatarUrl = (id, hash) =>
+    hash ? `https://cdn.discordapp.com/avatars/${id}/${hash}.${hash.startsWith("a_") ? "gif" : "png"}?size=256` : "";
+
+  async function getJson(url, ms = 6000) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    try {
+      const res = await fetch(url, { signal: ctl.signal });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch { return null; }
+    finally { clearTimeout(t); }
+  }
+
+  /* ---------- lanyard lookup ---------- */
+  const discordCache = new Map();
+  async function fetchDiscord(id) {
+    if (discordCache.has(id)) return discordCache.get(id);
+    const job = (async () => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const l = await getJson(`https://api.lanyard.rest/v1/users/${id}`);
+        if (l && l.success && l.data && l.data.discord_user) {
+          const u = l.data.discord_user;
+          const acts = l.data.activities || [];
+          const custom = acts.find(a => a.type === 4);
+          const other = acts.find(a => a.type !== 4);
+          return {
+            name: u.global_name || u.display_name || u.username,
+            username: u.username,
+            avatar: avatarUrl(id, u.avatar),
+            presence: l.data.discord_status || "offline",
+            status: (custom && (custom.state || custom.name)) || (other ? other.name : "")
+          };
+        }
+      }
+      return null; // not in the Lanyard server, or API down
+    })();
+    discordCache.set(id, job);
+    return job;
+  }
+
   async function getPageInfo(file) {
     const fallback = { file, title: safeName(file), handle: SITE, description: "profile", image: DEFAULT_AVATAR };
     const source = await fetchSource(file);
     if (!source) return fallback;
+
     const parsed = extractProfile(source, file);
-    return {
+    const id = findDiscordId(source);
+    const info = {
       file,
+      id,
       title: parsed.title || fallback.title,
       handle: parsed.handle || fallback.handle,
       description: parsed.description || fallback.description,
-      image: parsed.image || fallback.image
+      image: parsed.image || fallback.image,
+      presence: ""
     };
+    if (!id) return info;
+
+    const dc = await fetchDiscord(id);
+    const rawAvatar = findRawAvatar(source, id);
+    if (dc) {
+      info.title = dc.name || info.title;
+      info.handle = dc.username ? "@" + dc.username : info.handle;
+      info.image = dc.avatar || rawAvatar || defaultDiscordAvatar(id);
+      info.presence = dc.presence;
+      if (info.description === "profile") info.description = dc.status || "discord · " + id;
+    } else {
+      info.image = rawAvatar || (info.image === DEFAULT_AVATAR ? defaultDiscordAvatar(id) : info.image);
+      if (info.description === "profile") info.description = "discord · " + id;
+    }
+    return info;
   }
 
   /* ---------- clean URLs (/name, no .html) ---------- */
@@ -350,13 +438,15 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     $("handle").textContent = p.handle;
     $("description").textContent = p.description;
     $("count").textContent = String(selected + 1).padStart(2, "0") + " / " + String(pages.length).padStart(2, "0");
+    const dot = { online: "#3ba55d", idle: "#faa81a", dnd: "#ed4245" }[p.presence] || "#777";
+    document.querySelector(".pulse").style.cssText = `background:${dot};box-shadow:0 0 9px ${dot}`;
     $("open").href = pageUrl(p.file);
     $("open").setAttribute("aria-label", "Open " + p.title);
     $("rail").querySelectorAll(".thumb").forEach((btn, i) => {
       btn.classList.toggle("active", i === selected);
       btn.setAttribute("aria-current", i === selected ? "true" : "false");
     });
-    $("statusText").textContent = "profile selected";
+    $("statusText").textContent = p.presence ? p.presence : "profile selected";
     $("view").animate(
       [{ opacity: .65, transform: "translateY(4px)" }, { opacity: 1, transform: "translateY(0)" }],
       { duration: 220, easing: "ease-out" }
@@ -384,6 +474,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
       img.src = p.image || DEFAULT_AVATAR;
       img.alt = "";
       img.loading = "lazy";
+      img.addEventListener("error", () => { if (img.src !== DEFAULT_AVATAR) img.src = DEFAULT_AVATAR; });
       btn.append(img);
       btn.addEventListener("click", () => selectProfile(i, true));
       rail.append(btn);
@@ -395,21 +486,25 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     $("repoState").textContent = "checking main";
     $("statusText").textContent = "loading profiles";
     try {
-      const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents?ref=${BRANCH}`, {
-        headers: { Accept: "application/vnd.github+json" },
-        cache: "no-cache"
-      });
-      if (!res.ok) throw new Error("GitHub API returned " + res.status);
-      const entries = await res.json();
-      const htmlFiles = entries
-        .filter(item => item.type === "file" && /\.html?$/i.test(item.name) && item.name.toLowerCase() !== "index.html")
-        .map(item => item.name)
+      let names = null;
+      try {
+        const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents?ref=${BRANCH}`, {
+          headers: { Accept: "application/vnd.github+json" }, cache: "no-cache"
+        });
+        if (res.ok) names = (await res.json()).filter(i => i.type === "file").map(i => i.name);
+      } catch {}
+      if (!names) {
+        const res = await fetch(`https://data.jsdelivr.com/v1/package/gh/${OWNER}/${REPO}@${BRANCH}/flat`, { cache: "no-cache" });
+        if (!res.ok) throw new Error("file list unavailable (" + res.status + ")");
+        names = (await res.json()).files.map(f => f.name.replace(/^\//, "")).filter(n => !n.includes("/"));
+      }
+      const htmlFiles = names
+        .filter(n => /\.html?$/i.test(n) && n.toLowerCase() !== "index.html")
         .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
       if (!htmlFiles.length) throw new Error("No other HTML files found on main");
 
       pages = await mapLimit(htmlFiles, 4, getPageInfo);
 
-      // Honour the URL (/hours, /hours.html, /)
       const wanted = fileFromPath();
       const matchIdx = wanted
         ? pages.findIndex(pg => cleanName(pg.file).toLowerCase() === wanted)
@@ -420,7 +515,6 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
       if (matchIdx >= 0) syncUrl(pages[selected].file);
 
       $("repoState").textContent = pages.length + " pages";
-      $("statusText").textContent = "profiles ready";
       $("notice").textContent = "";
     } catch (error) {
       pages = [{ file: "hours.html", title: "Hours", handle: SITE, description: "profile", image: DEFAULT_AVATAR }];
@@ -466,6 +560,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
       $("sound").setAttribute("aria-pressed", "false");
     }
   });
+  $("avatar").addEventListener("error", () => { if ($("avatar").src !== DEFAULT_AVATAR) $("avatar").src = DEFAULT_AVATAR; });
 
   loadPages();
 })();

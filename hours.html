@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>socialanxiety.lol</title>
+
+<!-- ===== EMBED META TAGS ===== -->
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://socialanxiety.lol/">
+<meta property="og:title" content="socialanxiety.lol">
+<meta property="og:description" content="us never them">
+<meta property="og:image" content="https://raw.githubusercontent.com/projectZ678/social/main/79c341f9-ba05-4776-bf23-3e9f1a773768.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="socialanxiety.lol">
+<meta name="twitter:description" content="us never them">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/projectZ678/social/main/79c341f9-ba05-4776-bf23-3e9f1a773768.png">
+<!-- ============================ -->
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Pirata+One&family=Playball&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.7/jsmediatags.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #0a0a0a; color: #e0e0e0;
+    font-family: 'Inter', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; -webkit-font-smoothing: antialiased;
+  }
+
+  /* ===== ASCII BACKGROUND ===== */
+  #ascii-bg {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden;
+    display: flex; align-items: flex-start; justify-content: flex-start;
+    pointer-events: none; user-select: none;
+    font-family: 'Courier New', monospace; font-size: 1vw;
+    line-height: 0.8; color: #333; white-space: pre; text-align: left; 
+    opacity: 0.4;
+    transform-origin: top left;
+    transition: opacity 1s ease, filter 1s ease;
+    filter: blur(8px);
+  }
+  
+  body.entered #ascii-bg {
+    filter: blur(2px);
+    opacity: 0.15;
+  }
+
+  /* ===== ENTRY ===== */
+  #entry {
+    position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.5); border: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: opacity 0.6s ease, visibility 0.6s ease;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  #entry.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+  #entry span {
+    font-size: 0.75rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: #fff; animation: pulse 2.6s ease-in-out infinite; font-weight: 300;
+    text-shadow: 0 0 15px rgba(255,255,255,0.4);
+  }
+  #entry:hover span { animation: none; }
+  @keyframes pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+  /* ===== WIDGET / LAYOUT ===== */
+  #widget {
+    position: relative; z-index: 10; width: 100%; max-width: 900px; height: 100vh;
+    display: flex; flex-direction: column;
+    opacity: 0; transform: translateY(10px); pointer-events: none;
+    transition: opacity 0.8s ease 0.2s, transform 0.8s ease 0.2s;
+  }
+  #widget.visible { opacity: 1; transform: none; pointer-events: auto; }
+
+  /* Top Bar */
+  .top-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 1.5rem 2rem; font-size: 0.75rem; color: #666;
+    flex-shrink: 0;
+  }
+  .nav-btn {
+    background: none; border: none; color: #666; cursor: pointer;
+    font-family: inherit; font-size: 0.75rem; transition: color 0.2s;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .nav-btn:hover { color: #fff; }
+  .page-indicator { display: flex; align-items: center; gap: 0.5rem; }
+  
+  .mini-player { display: flex; align-items: center; gap: 0.5rem; color: #666; }
+  .mini-player span.brand { opacity: 0.6; letter-spacing: 0.05em; font-size: 0.75rem; }
+
+  /* Main Content */
+  #stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-y: auto; padding-bottom: 2rem; scrollbar-width: none; }
+  #stage::-webkit-scrollbar { display: none; }
+  .card { 
+    display: none; flex-direction: column; align-items: center; width: 100%; 
+    animation: fadeIn 0.5s ease; position: relative; padding: 0 2rem;
+  }
+  .card.active { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  /* Profile Section */
+  .avatar-container { position: relative; width: 80px; height: 80px; margin-bottom: 1.5rem; }
+  .avatar-container .pfp { 
+    width: 100%; height: 100%; border-radius: 50%; object-fit: cover; 
+    border: 1px solid rgba(255,255,255,0.08); background: #111;
+  }
+  
+  /* Pure CSS Discord Status Icons */
+  .dot-status { 
+    position: absolute; right: -2px; bottom: -2px; width: 20px; height: 20px; 
+    border-radius: 50%; border: 3px solid #0a0a0a; background: #80848e;
+    overflow: hidden;
+  }
+  .dot-status.online { background: #23a55a; }
+  .dot-status.idle { background: #f0b232; }
+  .dot-status.idle::after {
+    content: ''; position: absolute; top: -5px; right: -5px; width: 16px; height: 16px;
+    background: #0a0a0a; border-radius: 50%;
+  }
+  .dot-status.dnd { background: #f23f43; }
+  .dot-status.dnd::after {
+    content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 10px; height: 3px; background: #0a0a0a; border-radius: 2px;
+  }
+  .dot-status.offline::after {
+    content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 8px; height: 8px; background: #0a0a0a; border-radius: 50%;
+  }
+
+  .name {
+    font-family: 'Pirata One', cursive; font-size: clamp(3.5rem, 9vw, 5.5rem);
+    line-height: 1; color: #fff; margin-bottom: 0.8rem; text-align: center;
+    text-shadow: 0 4px 20px rgba(255,255,255,0.05);
+  }
+
+  /* Handle & Badges */
+  .handle {
+    font-size: 0.9rem; color: #888; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    margin-bottom: 2rem; font-weight: 300;
+  }
+  .badges {
+    display: flex; align-items: center; gap: 0.3rem;
+  }
+  .badge-icon {
+    width: 16px; height: 16px; object-fit: contain;
+    transition: transform 160ms ease, filter 160ms ease;
+    cursor: default;
+    -webkit-user-drag: none; user-select: none;
+  }
+  .badge-icon:hover {
+    transform: translateY(-2px) scale(1.12);
+    filter: drop-shadow(0 2px 5px rgba(255,255,255,0.16));
+  }
+  @media (prefers-reduced-motion: reduce) { .badge-icon { transition: none; } .badge-icon:hover { transform: none; } }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid; grid-template-columns: 1fr 1fr; width: 100%; max-width: 420px;
+    border-top: 1px solid rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.06); 
+    margin-bottom: 2rem; position: relative;
+  }
+  .stats-grid::after {
+    content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(255,255,255,0.06);
+  }
+  .stat-item { padding: 1rem 0.5rem; text-align: center; }
+  .stat-label { font-size: 0.6rem; color: #666; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.3rem; }
+  .stat-value { font-size: 0.8rem; color: #ccc; font-weight: 600; }
+
+  /* Music / Activity */
+  .music-section { display: flex; flex-direction: column; align-items: center; width: 100%; margin-bottom: 1rem; min-height: 4rem; }
+  .song-title { font-family: 'Playball', cursive; font-size: 2.2rem; color: #fff; margin-bottom: 0.2rem; text-align: center; line-height: 1; }
+  .song-artist { font-size: 0.8rem; color: #666; font-weight: 300; }
+  
+  /* Compact, minimal audio player */
+  .player {
+    width: min(100%, 340px); display: flex; flex-direction: column; align-items: stretch;
+    padding: 12px 14px 10px; margin: 0 auto 1.25rem; border: 1px solid rgba(255,255,255,.075);
+    border-radius: 14px; background: rgba(12,12,14,.72); box-shadow: 0 8px 28px rgba(0,0,0,.16);
+  }
+  .seek-row { display: flex; align-items: center; gap: .55rem; width: 100%; margin-bottom: .55rem; }
+  .time { font-size: .62rem; color: #777; min-width: 30px; font-variant-numeric: tabular-nums; }
+  .time.right { text-align: right; }
+  .player input[type=range] {
+    -webkit-appearance: none; appearance: none; flex: 1; height: 3px; border-radius: 99px;
+    background: rgba(255,255,255,.13); outline: none; cursor: pointer;
+  }
+  .player input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none; width: 8px; height: 8px; border-radius: 50%;
+    background: #d7c6ff; box-shadow: 0 0 0 3px rgba(160,115,255,.12); transition: transform .12s;
+  }
+  .player input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+  .player input[type=range]::-moz-range-thumb { width: 8px; height: 8px; border-radius: 50%; background: #d7c6ff; border: 0; }
+  .controls-row { display: flex; align-items: center; justify-content: center; gap: 1.25rem; width: 100%; position: relative; }
+  .skip-btn { background: none; border: 0; color: #777; font-size: .68rem; cursor: pointer; font-family: inherit; padding: 6px; transition: color .18s; }
+  .skip-btn:hover { color: #fff; }
+  .play-btn { width: 34px; height: 34px; border-radius: 50%; background: #f7f5ff; color: #101014; border: 0; display: grid; place-items: center; cursor: pointer; font-size: .78rem; transition: transform .18s, background .18s; }
+  .play-btn:hover { transform: scale(1.06); background: #dfd2ff; }
+  .ly-btn { position: absolute; right: 0; background: none; border: 0; color: #777; cursor: pointer; padding: 6px; transition: color .18s; display: grid; place-items: center; }
+  .ly-btn:hover, .ly-btn.on { color: #d7c6ff; }
+  .ly-btn svg { width: 15px; height: 15px; }
+  .volume-row { display: flex; align-items: center; justify-content: center; gap: .5rem; margin: .65rem auto 0; width: 112px; }
+  .vol-icon { color: #777; font-size: .6rem; letter-spacing: .04em; }
+  .player-status { min-height: 12px; margin-top: 5px; text-align: center; font-size: .62rem; color: #85808f; line-height: 1.3; }
+  .player-status.error { color: #e59a9a; }
+
+  /* Connections Dropdown (Grid & Scrollable) */
+  .connections-wrapper {
+    position: relative; z-index: 40;
+    display: flex; justify-content: center;
+  }
+  .conn-trigger {
+    display: flex; align-items: center; gap: 0.5rem; cursor: pointer;
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+    padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.7rem; color: #888;
+    transition: all 0.2s; font-weight: 300;
+  }
+  .conn-trigger:hover { background: rgba(255,255,255,0.06); color: #fff; }
+  .conn-trigger img, .conn-trigger .logo-fb { width: 14px; height: 14px; object-fit: contain; }
+  .logo-fb { display: grid; place-items: center; background: rgba(255,255,255,0.1); border-radius: 2px; font-size: 0.55rem; color: #fff; font-weight: bold; }
+  
+  .conn-menu {
+    position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-5px);
+    background: #111; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 0.5rem;
+    width: 280px; max-height: 200px; overflow-y: auto;
+    opacity: 0; visibility: hidden; transition: all 0.2s ease; z-index: 20;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.4rem;
+    scrollbar-width: thin; scrollbar-color: #333 #111;
+  }
+  .conn-menu::-webkit-scrollbar { width: 4px; }
+  .conn-menu::-webkit-scrollbar-track { background: #111; }
+  .conn-menu::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+  
+  .conn-menu.open { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+  .conn-menu a {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.4rem;
+    padding: 0.6rem 0.2rem; text-decoration: none; color: #888; border-radius: 8px; transition: background 0.2s, color 0.2s;
+    background: rgba(255,255,255,0.02);
+  }
+  .conn-menu a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .conn-menu a img, .conn-menu a .logo-fb { width: 24px; height: 24px; flex-shrink: 0; }
+  .conn-menu a span { font-size: 0.6rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+
+  /* Lyrics Panel */
+  #lyrics {
+    position: fixed; right: -260px; top: 50%; transform: translateY(-50%);
+    width: 220px; height: 340px; 
+    background: rgba(15, 15, 15, 0.65);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px; padding: 0.8rem 1rem 1.2rem; display: flex; flex-direction: column;
+    opacity: 0; visibility: hidden; transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 100;
+    box-shadow: -10px 0 30px rgba(0,0,0,0.4); 
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  }
+  #lyrics.open { opacity: 1; visibility: visible; right: 1.5rem; transform: translateY(-50%); }
+  
+  .ly-header { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 0.5rem; }
+  .ly-close { background: none; border: none; color: #888; cursor: pointer; font-size: 1rem; transition: color 0.2s; }
+  .ly-close:hover { color: #fff; }
+  
+  .ly-body { 
+    flex: 1; overflow-y: auto; scrollbar-width: none; 
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000 15%, #000 85%, transparent); 
+    text-align: center; 
+    position: relative;
+  }
+  .ly-body::-webkit-scrollbar { display: none; }
+  
+  .ly-body p { 
+    font-family: 'Caveat', cursive; font-size: 1.5rem; font-weight: 500; line-height: 1.1;
+    color: #666; margin-bottom: 0.3rem; transition: all 0.25s ease; cursor: pointer;
+    transform-origin: center;
+  }
+  .ly-body p.cur { 
+    color: #fff; 
+    transform: scale(1.1); 
+    text-shadow: 0 0 15px rgba(255,255,255,0.6);
+  }
+  .ly-pad { padding: 30px 0; }
+
+  @media (max-width: 1100px) {
+    #lyrics.open { right: 1rem; }
+  }
+
+  @media (max-width: 900px) {
+    #ascii-bg { font-size: 1.5vw; }
+    .stats-grid { width: 95%; }
+    #lyrics { width: 90%; right: -100%; top: auto; bottom: 1rem; height: 40vh; transform: translateY(0); }
+    #lyrics.open { right: 5%; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+
+  <div id="ascii-bg" aria-hidden="true"></div>
+  <button id="entry" type="button"><span>Click to enter</span></button>
+
+  <div id="widget">
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <button class="nav-btn" id="backBtn" style="visibility: hidden;">
+        <span>&lt;</span> back
+      </button>
+      
+      <div class="page-indicator">
+        <button class="nav-btn" id="prev" style="padding: 0 0.5rem;">&lt;</button>
+        <span id="pageNum">01 / 01</span>
+        <button class="nav-btn" id="next" style="padding: 0 0.5rem;">&gt;</button>
+      </div>
+
+      <div class="mini-player">
+        <span class="brand">socialanxiety.lol</span>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="stage"></div>
+  </div>
+
+  <!-- Lyrics Panel -->
+  <aside id="lyrics">
+    <div class="ly-header">
+      <button class="ly-close" id="lyClose">&#10005;</button>
+    </div>
+    <div class="ly-body" id="lyBody"></div>
+  </aside>
+
+<script>
+  const ASCII_ART = String.raw`::::::::::::---------========================------:::::.                                           .....::-----===========-----==--------------===========+++++*****************##*************
+..::::::::::----------======================---==--::::::::::.......                               ......::----==-----==--------===-----===-----===========+++++********************************
+  :::::::::------------======================---:::.::::::::::::::..........                      ......::---===---------------======--====================++++++*******************************
+   .::::::------------================+===---------------------::::::::::.......                  ......::::---==--------------=======-========+=========++++++++++*****************************
+    .:::--------------=================-----------------------------::::::::::.....               .......:::--==----:------==========+=====+++++++==+==+++++++++++**************++++++++******##
+      .::-------------=============-----=--------------:-------:-------::::::::::::....         .......:::::--==--:::::---===========+++==+++++++++++===++++++++++*************+++++++********##
+       .::------------==========------=========--=---------------------------:::::::::...        ...:::::::------:::::-----========+++++======++++========+++++++**************+++++++*+*+++++**
+        .::-----------=========------=================---=====------=---------:--::::::::...     ..::----------:::::::--------============--===++=========+=+++++++*********+++++++++++++++==+++
+         .::----------=======------==============================--=====-----------------:::..   ..:-----------:::::----------===----======-=================++++***********++++++++++++++++++++
+          .:----------=-===------==============================================----------::::.....:---------:-:::::---------------===---======+++=++=++++==+++++++++*********+++***+++++++++++++
+            :-----------=---------=============+==================================-----------:::.::-------:::::::::-----::::-----====--====+===++==+==+++++++++++++++**************++++++++++++*
+             :-----------::------==========================================+==========----==---:::::.::::::----..:::--------================+=============++++=++++++++***************+++++*****
+              ::-------:::-------================::=================+========++========---===-----:::      .:-:....::---:--=======================================+++++++********************###
+               .------:::::-----===========================++======++=========+++================-----              .-----============================================++++******************####
+                .:..::::-::----===--===++========++=++++=+++=++++++++===========+++--=============-----.             :---===================--====-=======--=--=======-=+++++*************######
+                  ::::::------===----=======++++--+++++++++++++++++++++=========++++================-===:            .--=======================-----------:..::------=======++***********#######
+                   .:::------====--::-====++++++=-++++++++++++++++++++=====++++++++++++++++++=+==========-         ..::---------==========--=-::::------::........  ..:-=====+++*********#######
+                  .::::------=====---====++++++++=++++++++++++++++++++++++++++++++++**++++++++++++=========.     .......:---------=======-:.......::-:---..          .--=====+++*******#########
+                  .:::--------==========++++++++++++++*++++++++++++++++++++++++++*******+++++++++++=========:.....   ...::---------=====--:.  .....:--::.            .:-====++++*******#########
+                  .::::------==========+++++++++++++*+*+++++++++==++++++++++**************+++++++++++=========.     ..::---------------:..     ...::--:.            .:--====++********##########
+                 ..:::-------=========+++++++++++++++**+::++++++=.=+++**********************++++++++++=========.   .::-----------------.         .:::-:         ...:---===++********#########***
+                 ..:::-------=========++++++++++++++++**= .=+++++--++************************++++*+**+++=+++====:  :-----------==----:.          ....:.        .-------==++*********************
+                 ...:::---:-==========+++++++++++++++++*+.  =++++=-=+********************************+++++++++===:.:----::::----===-:.           .              :-----==+++******************###
+                 ...:::::.::-=========+++++++++++++++++**-   -****=+*****************************++****++++++++===::::..   .....:--..                           .:--===+++*********+++********##
+                 ...:::-::-:-========+++++++++++++++++++*+.   :*************#*####*******##*******++***++-=++++++==:                                             :-==++++**********++++********#
+                  ...::------========+++++++++++++++++*+**-    .*#####****##**######*****#*********++****-  -+++++==:                                           .-===++++*********+++**********#
+                  ...:::-----========++++++++++++++********:     *############=*#####*******=********+****-   =+++++=.                                   :--::--====+++++********++++**#########
+                   ..::::-----========++++++++++***********+      **###########-:+####****##=:+************-  .=+++++=.                             ....:--==---=====+++**************#########%
+                   ..::::------=======+++++++++********#####:      +*==##*######=..=###****#*-.=***********+:  -++++++=.                           .::----==-=---====++++*******###########%####
+                    ..::::-----========++++*+++*******######+.      ++.:**--*##**=.  =*****#*#######********=. -++==+++=:                          .::--------==-===+++++++****#################
+                    ..::::------======++++************##*####-       +=  -*:  =##*=.   +==*#####***##******++= -**+-+++=-:                            .------======+++++++++****################
+                    ..:..::-----=====++++++*************+=###*:       +:  .*:   =#*=.  :#%%####*=-.:*#********--+**+++++==.                          .:-----=======+++++++++******###*##########
+                     .::::::----===++++++++*************#=-*##*.      .+    -:    =*+*%%%###*-=+:   .*##******++****++++++=:                         .:-::.:-=======++++**************##########
+                     .::::------===+++++++**************#*:.+##+.      ::    :.   -###*#*****=+.+=    *##**************+++==:                        :-:.   .-:..:===+**************############
+                     ..:::----=====++++++*****+=++********+. :*#+       :     ..  =+**++++++:*-  :=    +###************++++==:                       .         ..-=++++************#############
+                     ..::---==-====++++********:-*+#*******-   +#=       :     .     -*-..=*+      .    +#********++++++++++==-                              ...:=+++++++***********############
+                      .::---========+++*******#*::+=********.   =#:                    :=.               +#****#***+=-++***+++=-                          ......:=++++++++++********************
+                      .:::-===++=++++++*********- .=-=#*****-    .*.                                     -**#**##***+=+*****+++=-                       .......:-==++++++++++++++++********###**
+.                      .::-===++++++++***********:  --.+****+      -                                     :.+**####*==+*******++==-                    ...::...:-======+++=++++++************###*
+.                       .:-==+++++++********#****=.   - .+***-                                             +#***##########****+===-.              ......:----:-==========+++++++****************
+..                       :-===+++++*********###***-    :..=##*+-.                                          *##*###########****++==--.           .........-----===========+++++++****************
+.:..                      :-==+++++**********####*+..  +%@@%%#*=                                          :#%#**##*########****++==-:.        ............:----=========++++++++++****+++*++****
+ .:..                      :-==++++**********###**#*#%%%%%##*=                                            +%%%#*###*########****++==-:.      ..   .........:---===---===++==-=++++++**++=+++++++
+   ::.                      :-==+++********##*###+*%%#####*++:+: .                                       -%%%%%#**#**##%#%%##****++=-:..              .....::---------====-:::-===+++++++==+++++
+    .:..                     :-==++********###*###*##***++=:.=+                                         :%%%%%%#**##**##%####*****+=-:....          ..........::::...:::--:....::-=++++=++++++++
+     .:..                     :-==+++*******###*#######*++*#=                                          .+%%%%%%%#**##*###%#%##***+++=..::...        ...           .......:......:===++++++++++++
+      .::.                     .--=++***=-**####**####+##+.                                            =#%%%%%%%%#**##*###%#%##***==+==---:..                      ..............-=+++++++++++++
+       .::..    .               .:-==++**+****###+*####==**-                                         . -#%%%%%%%%#**###*##%####**++:-++==-::..                      .......     .-=++++++++=-==+
+        .::..                     .:-=+++++***####***###+:=*+.                                         .*%%%%%%%%%#**###*#%%####*++-..===-.                                    ..-=++++==---....
+         ..::.                     .:-=++*+****#####**####- -#+                                    .    .*%%%%%%%%#**####*######*--:: ..                                    ....:::--:..........
+.          .::..                     :-=++******#####**####+. :+:                                 .      -#%%%%%%%%#**###*######*==.-.                                      ..:-:...............
+.......     .::..                     :==++******#####**###%*:  .:                              ...       -#%%%%%%%%**####*#####**+=+-                                        ..................
+........     .:-:.                     .-==+******############+.                               . .         .+#%%%%%%#**###**#####*****-                                        .................
+............. ..-:..                     -==++*******###########=                            .                .:-=+*++*+:   -#######***-                                        ................
+.................-:..                     :-==+*******###########%#+:.                 ........                       +*.    +######****:                                       ................
+..................--..     .               .--=+++****#############%%%%%###+*%%#=..............                       :*=    .*#######***:                                    . ................
+...................:-:.                      :--==++***###############%%%%%%%%%%%*:............                        ++     :*#######*++.                                  ...................
+....................:-:.                      .:--=++****#############%#%%%%%%%%%%%+...........                        -*-     :########*:+:                                 ...............::::
+......................-:..                      .--=++****#############%%%######%%%%*:.........                         ++      -########* =-                                 ............::::::
+.......................--:.                       -=+++*****#####***-:+###########%%%%=........                         -*-      =%######*- --                                .........::::::.. 
+........................--:.                       .-=++*******###**++=*######*####%%%%=......                           ++       =#######*.  -                               .......:::::..  .:
+:........................:-:..                       :=++*******##*****#**#####*###%%%%=.....                            -*-       =#######+   ..              .              .....::::..  .:---
+-:........................:--..                       .-=++*******##****###########%%%#:....                              ++.       +#######:    .                             ..::::....:-==---
+:--:........................--:.                        :-=++*************##**#%####%%=.....                              :*+       .+######*.    ..                            .::...:-===-----
+.:--:........................--:..                       .:==++************###*#%%%##*:..                                  =*-       .+#######:     -                             ..-===--------
+..:==:........................:-:..  ..                    .-==++************#####**#-.                                     ++        :*#######.    .=.                           :=------------
+ ...-=:........................:--:...                      .:-=++*************##*++:.                                       +=        :#%######:   .**.                           .:------=----
+  ...-=-:........................--:..      ....              :-==+*************##*:.                ....                    :*-        :###+*###-  :**                             .-------====
+     .:=-:........................:::-:. .::.                  .-==+***********####+.                                         :*.        -##=-####: .*-                              .---=======
+      .:=-:.....................::-==-:. .                      .:-=++*******#######*:                                         :+         -##**####: +.                               .-========
+      ...==-................::---:..:--:..                      ..:-==+********######*-                                         :=         =########=+                                 .--======
+..........-=-:..........::----:.......--:..                   ..  ..:-=+*********######=                                         :=         *%##%%##%#:                                  -======
+...........-==::....::--=-:............--:...           .....       .::=+**********#####+                                                  ..*%##%%%%#*                                   -=====
+............:==::::-=--:................-=:....      ........           ::  =********####+                                                   :###%%%%%%*                                   -====
+.............:--==-::....................:=-:...     ........                .+**+==+**###*-                                                  :###%%%%%%#.                                  :---
+.........::--=====:.......................:=-:...     ......                   :+++++**####+:--.                                        .  .    *##%%%%%%%:                                  .--
+.....::--==-::.:-+=::.......................==:...     ...                       -+++*****##*:   ...                                  ..         *#*%%%%%%%-                                  .:
+..::-==--::::....:+=-:.......................-=:....                               +******###*:                              ..             ..   .+%##%%%%%%-                                   
+-===-::...........:==-::......................-=-:...                               :******###*:                                .          .      .=%%%%%%%%%=                                   
+=-::::............::=+-::.....................::=-:...                                =*****###*:                                ...                :*%%%%%%%%-                                  
+::::................:-+=::......................:-=:...                             .  :****####*-.              .     ...                            =#%%%#%%#.                 ..             
+::::..................-+=-:.....::...............:-=-...                               ..=****####:              ..  ..                                .=%%###%*                 ...            
+:::::................::-++-:...:::................:-=-..                                   +#######=                                                    .-#%%###+                ....           
+::::::::::::::::::.::::::=+=:....:::...............::=-:.                                   =#######*        .  .                                         :#%%####               .:.::          
+:::::::::::::::::.::::::::=+=-::::...................:=-:.                                   :###***##=:....                                               .*%=+###-             ......         
+:::::::::::::::::::::::::::-+=-::......................-=::                                   :*+*#####*:                                                   .+#:.=*%+        ..  ...:. .        
+::::::::::::::::::::::::::::-++-:.......................-=-                                    :+ .=#####+:                                                   =*:..-*#=      ..  ...    .       
+-:::::::::::::::::::::::::::::=+=:::.....................-=.                                    -=  .-*####+.                                                  :*: ..-#*.    ......             
++=-::::::::::::::::::::::::::::=+=-::.....................:-    .                                =: ...=#%###+.                                                 .=-. ..-*:   ....               
+=+=-::::::::::::::::::::::::::::-+=-::..............:::....:=-::..                                =    .:+##%%#=                                                 ..:.....:.  ..                 
+-=++=-:::::::::::::::::::::::::::-++-:::::::::::....::::..:::--::..                               :=    .:*###%%*                                             ..  ......  .. .                  
+::-++=-:::::::::::::::::::::::::::-++=-:::::::::::.::::..::.:::=-:.                .               =-    .-####%%#                                             .........  ..                    
+:::-+*=-:::::::::::::::::::::::::::-=+=-::::::::::::::....::::::=-..                  .             -=    .*#*++###                                      .     ...........                     .
+:::--+++-::::::::::::::::::::::::::::=+=-:::::::::::::....::.::::--:.                 ..              =.   =*#****#*                                      .  .   .                              
+::::::=++=-:::::::::::::::::::::::::::=++-::::::::::::::::...:::::-=:.                 .                -.  :+##*::*:                                      ...                                 .
+:::::::=*+=-:::::::::::::::::::::::::::-=+=::::::::::::::::.:::::::-=:.                                   -=  .:+***#.                     .               ...                       ..         
+::::::::-+*=-:::----------::::::::::::::-=+=-::::::::::::::::::::::::=-:                                    .=.  .:+%*.                    ...               .                        ..        
+:::::::::-+*=-::--------------::::::::::::=+=-::::::::::::::::::::::::==:                                     .=    .+#-                    .:.. ..                                    .        
+::::::::::-=*+---------------::::::::::.::--+=-::::::::::::::::::::::::-=-.                                     -.    .+##*:                 ....:.          ...                        .       
+:::::::::::-=*+=-------------:::::::::::::::-+=-::::::::::::::::::::::::-=-.                                     .       .+%+               .......           ..                         .      
+:::::::------=++==------------:::::::::::::::-=+=-:::.::::::::::::::::::::--:.                                              :=               ..                ..                        ..     
+:---:::::::---=+*==----::::----::::::::::::::::=+=-::...:::::::::::::...:::-:..                                    .         .:.             ..                 .                         ..    
+----:......::---+*+=---:::::::::::::::::::::::::=+=-:...:::::...:::.....:::...-=-                                              ...           ..                                            ...  
+:::::.......::::-=++=-:::::..:::::::::::::::::::::-==-:..::...:..:..........:=+==-.                                                          ...                                             ... 
+-::..........:::::-++=:::::..:::::::::::...:::::::-==-::....:...........:-=+=--==:..                                 .                                                                       ...`;
+
+  // Badge URLs Mapping for Manual Overrides
+  const BADGE_URLS = {
+    nitro_ruby: 'https://raw.githubusercontent.com/Fmasterpro27/Discord-badges/main/assets/nitro_badge/ruby.png',
+    nitro: 'https://cdn.discordapp.com/badge-icons/2ba85e8026a8614b640c2837bcdfe21b.png',
+    early_supporter: 'https://cdn.discordapp.com/badge-icons/7060786766c9c840eb3019e725d2b358.png',
+    active_developer: 'https://cdn.discordapp.com/badge-icons/6bdc42827a38498929a4920da12695d9.png',
+    hypesquad_bravery: 'https://cdn.discordapp.com/badge-icons/8a88d63823d8a71cd5e390baa45efa02.png',
+    hypesquad_brilliance: 'https://cdn.discordapp.com/badge-icons/011940fd013da3f7fb926e4a1b241e91.png',
+    hypesquad_balance: 'https://cdn.discordapp.com/badge-icons/3aa41de486fa12454c3761e8e223442b.png',
+    bug_hunter: 'https://cdn.discordapp.com/badge-icons/2717692c7dca7289b3529736fecdb2f2.png',
+    staff: 'https://cdn.discordapp.com/badge-icons/5e74e9b61934fc1f67c65515d1b7e3ec.png'
+  };
+
+  const PROFILES = [
+    { 
+      id: '1510039776424759508', 
+      audio: 'https://raw.githubusercontent.com/projectZ678/social/main/A%20Boogie%20Wit%20Da%20Hoodie%20-%20Jungle',
+      audioFallback: 'https://github.com/projectZ678/social/raw/refs/heads/main/A%20Boogie%20Wit%20Da%20Hoodie%20-%20Jungle',
+      title: 'Jungle', artist: 'A Boogie Wit Da Hoodie', duration: 174,
+      badges: ['nitro_ruby', 'early_supporter']
+    },
+    {
+      id: '1470944661324693575',
+      badges: ['nitro_ruby', 'early_supporter']
+    }
+  ];
+
+  const USE_EXTRA_PROFILE_DATA = true;
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const PLAY = '&#9654;', PAUSE = '&#10074;&#10074;';
+  const fmtTime = s => isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : '0:00';
+  const created = id => new Date(Number((BigInt(id) >> 22n) + 1420070400000n));
+  const fmtDate = d => d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }).toLowerCase();
+
+  const STATUS = { online: 'Online', idle: 'Idle', dnd: 'Do not disturb', offline: 'Offline' };
+
+  // Create the audio element before profile data finishes loading. This lets the
+  // Enter click start playback directly inside the user's gesture.
+  const trackConfig = PROFILES.find(p => p.audio);
+  const sharedAudio = trackConfig ? new Audio() : null;
+  if (sharedAudio && trackConfig) {
+    sharedAudio.preload = 'auto';
+    sharedAudio.volume = 0.85;
+    const firstSource = document.createElement('source');
+    firstSource.src = trackConfig.audio;
+    firstSource.type = 'audio/mpeg';
+    sharedAudio.appendChild(firstSource);
+    sharedAudio.load();
+  }
+  let entered = false;
+  let audioStarted = false;
+
+  // Render and Stretch ASCII
+  function renderAscii() {
+    const el = $('ascii-bg');
+    el.textContent = ASCII_ART;
+    
+    el.style.transform = 'none';
+    
+    const width = el.scrollWidth;
+    const height = el.scrollHeight;
+    
+    const scaleX = window.innerWidth / width;
+    const scaleY = window.innerHeight / height;
+    
+    el.style.transform = `scale(${scaleX}, ${scaleY})`;
+  }
+  window.addEventListener('resize', renderAscii);
+  renderAscii();
+
+  // Data Fetching
+  async function fetchLanyard(id) {
+    let res = await fetch(`https://api.lanyard.rest/v1/users/${id}`);
+    const json = await res.json();
+    if (!json.success) throw new Error('Not found');
+    return json.data;
+  }
+  async function fetchExtra(id) {
+    if (!USE_EXTRA_PROFILE_DATA) return null;
+    try { const res = await fetch(`https://dcdn.dstn.to/profile/${id}`); return res.ok ? await res.json() : null; } catch { return null; }
+  }
+
+  // Connections
+  const CONN = {
+    github: ['GitHub', 'github'], twitter: ['X', 'x'], x: ['X', 'x'], youtube: ['YouTube', 'youtube'], 
+    twitch: ['Twitch', 'twitch'], spotify: ['Spotify', 'spotify'], reddit: ['Reddit', 'reddit'], 
+    tiktok: ['TikTok', 'tiktok'], instagram: ['Instagram', 'instagram'], steam: ['Steam', 'steam'],
+    letterboxd: ['Letterboxd', 'letterboxd']
+  };
+  
+  function connIcon(type, label) {
+    const letter = (label || type || '?').charAt(0).toUpperCase();
+    if (type === 'letterboxd') {
+      return `<img class="logo" src="https://th.bing.com/th/id/ODF.pXq-imYlvx2TdzE1Vih78Q?w=32&h=32&qlt=90&pcl=fffffa&o=6&pid=1.2" alt="" onerror="this.outerHTML='<span class=\\'logo-fb\\'>${esc(letter)}</span>'" />`;
+    }
+    const slug = CONN[type] ? CONN[type][1] : null;
+    if (!slug) return `<span class="logo-fb">${esc(letter)}</span>`;
+    return `<img class="logo" src="https://cdn.simpleicons.org/${slug}/white" alt="" data-letter="${esc(letter)}" loading="lazy" onerror="this.outerHTML='<span class=\\'logo-fb\\'>${esc(letter)}</span>'" />`;
+  }
+
+  function connUrl(c) {
+    const n = encodeURIComponent(c.name || ''), id = encodeURIComponent(c.id || '');
+    switch (c.type) {
+      case 'github': return `https://github.com/${n}`;
+      case 'twitter': case 'x': return `https://x.com/${n}`;
+      case 'twitch': return `https://twitch.tv/${n}`;
+      case 'reddit': return `https://reddit.com/user/${n}`;
+      case 'instagram': return `https://instagram.com/${n}`;
+      case 'tiktok': return `https://tiktok.com/@${n}`;
+      case 'youtube': return id ? `https://youtube.com/channel/${id}` : '';
+      case 'steam': return id ? `https://steamcommunity.com/profiles/${id}` : '';
+      case 'spotify': return id ? `https://open.spotify.com/user/${id}` : '';
+      case 'letterboxd': return `https://letterboxd.com/${n}`;
+      default: return '';
+    }
+  }
+
+  // Audio & Lyrics State
+  let audios = [];
+  let activeIndex = 0;
+  let lyricsOpen = false, lyricLines = [], lyricCur = -1;
+  const lyricCache = {};
+
+  function buildCard({ cfg, lanyard: d, extra }) {
+    const u = d.discord_user;
+    const name = u.global_name || u.display_name || u.username;
+    const status = d.discord_status || 'offline';
+    
+    // Badges Logic
+    let allBadges = [];
+    
+    if (extra && extra.badges) {
+      const wantsRuby = cfg.badges && cfg.badges.includes('nitro_ruby');
+      extra.badges.forEach(b => {
+        if (wantsRuby && /nitro/i.test(String(b.name || b.description || ''))) return;
+        allBadges.push({ url: b.icon });
+      });
+    }
+    
+    if (cfg.badges && Array.isArray(cfg.badges)) {
+      cfg.badges.forEach(b => {
+        const url = BADGE_URLS[b];
+        if (url) allBadges.push({ url: url });
+      });
+    }
+
+    const uniqueBadges = Array.from(new Map(allBadges.map(b => [b.url, b])).values());
+
+    const badgesHtml = uniqueBadges.length > 0 ? `
+      <div class="badges">
+        ${uniqueBadges.map(b => `<img class="badge-icon" src="${esc(b.url)}" alt="${b.url.includes('ruby.png') ? 'Ruby Nitro' : 'Discord badge'}" loading="lazy" />`).join('')}
+      </div>
+    ` : '';
+
+    // Connections Dropdown
+    let conns = (extra?.connected_accounts || []).filter(c => c && c.type);
+    conns.sort((a, b) => {
+      const nameA = CONN[a.type]?.[0] || a.type;
+      const nameB = CONN[b.type]?.[0] || b.type;
+      return nameA.localeCompare(nameB);
+    });
+
+    const connHtml = conns.length ? `
+      <div class="connections-wrapper">
+        <div class="conn-trigger" id="connTrigger">
+          ${connIcon(conns[0].type, CONN[conns[0].type]?.[0] || conns[0].type)}
+          <span>${conns.length} link${conns.length > 1 ? 's' : ''}</span>
+        </div>
+        <div class="conn-menu" id="connMenu">
+          ${conns.map(c => {
+            const label = CONN[c.type]?.[0] || c.type;
+            return `<a href="${connUrl(c)}" target="_blank" rel="noopener">${connIcon(c.type, label)}<span>${esc(c.name)}</span></a>`;
+          }).join('')}
+        </div>
+      </div>` : '';
+
+    // Music Section
+    let musicHtml = '';
+    if (cfg.audio) {
+      const fallbackTitle = cfg.title || 'Loading...';
+      const fallbackArtist = cfg.artist || '...';
+      musicHtml = `
+        <div class="music-section">
+          <div class="song-title" id="songTitle-${u.id}">${esc(fallbackTitle)}</div>
+          <div class="song-artist" id="songArtist-${u.id}">${esc(fallbackArtist)}</div>
+        </div>`;
+    } else if (d.listening_to_spotify && d.spotify) {
+      const sp = d.spotify;
+      musicHtml = `
+        <div class="music-section">
+          <div class="song-title">${esc(sp.song)}</div>
+          <div class="song-artist">${esc(sp.artist)}</div>
+        </div>`;
+    }
+
+    // Audio Player Controls
+    const audioControls = cfg.audio ? `
+      <div class="player">
+        <div class="seek-row">
+          <span class="time pl-cur">0:00</span>
+          <input type="range" class="seek" min="0" max="100" value="0" step="0.1" />
+          <span class="time right pl-tot">0:00</span>
+        </div>
+        <div class="controls-row">
+          <button class="skip-btn btn-rew">-10</button>
+          <button class="play-btn">${PLAY}</button>
+          <button class="skip-btn btn-ff">+10</button>
+          <button class="ly-btn" aria-label="Show Lyrics">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="22"></line></svg>
+          </button>
+        </div>
+        <div class="volume-row">
+          <span class="vol-icon">VOL</span>
+          <input type="range" class="vol" min="0" max="1" step="0.01" value="0.85" aria-label="Volume" />
+        </div>
+        <div class="player-status" role="status" aria-live="polite">Ready to play</div>
+        <audio preload="auto"><source src="${esc(cfg.audio)}" type="audio/mpeg" /></audio>
+      </div>` : '';
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="avatar-container">
+        <img class="pfp" src="https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.${u.avatar?.startsWith('a_') ? 'gif' : 'png'}?size=256" alt="" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" />
+        <span class="dot-status ${esc(status)}"></span>
+      </div>
+      
+      <div class="name">${esc(name)}</div>
+      <div class="handle">
+        <span>@${esc(u.username)}</span>
+        ${badgesHtml}
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-item">
+          <div class="stat-label">Joined</div>
+          <div class="stat-value">${fmtDate(created(u.id))}</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">ID</div>
+          <div class="stat-value">${esc(u.id)}</div>
+        </div>
+      </div>
+
+      ${musicHtml}
+      ${audioControls}
+      ${connHtml}
+    `;
+
+    // Wire Connections Dropdown
+    const cTrigger = card.querySelector('#connTrigger');
+    const cMenu = card.querySelector('#connMenu');
+    if (cTrigger && cMenu) {
+      cTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cMenu.classList.toggle('open');
+      });
+      document.addEventListener('click', () => cMenu.classList.remove('open'));
+    }
+
+    // Metadata detection from audio URL
+    if (cfg.audio) {
+      const songTitleEl = card.querySelector(`#songTitle-${u.id}`);
+      const songArtistEl = card.querySelector(`#songArtist-${u.id}`);
+      
+      const fallbackFromUrl = () => {
+        if (cfg.title) return;
+        try {
+          const urlParts = cfg.audio.split('/');
+          let filename = urlParts[urlParts.length - 1].split('?')[0];
+          filename = decodeURIComponent(filename).replace(/\.[^/.]+$/, ""); 
+          filename = filename.replace(/[-_]/g, ' '); 
+          if (filename.includes(' - ')) {
+             const parts = filename.split(' - ');
+             if(songTitleEl) songTitleEl.textContent = parts[1].trim();
+             if(songArtistEl) songArtistEl.textContent = parts[0].trim();
+          } else {
+             if(songTitleEl) songTitleEl.textContent = filename;
+             if(songArtistEl) songArtistEl.textContent = '';
+          }
+        } catch { if(songTitleEl) songTitleEl.textContent = 'Unknown Track'; }
+      };
+
+      if (typeof jsmediatags !== 'undefined') {
+        jsmediatags.read(cfg.audio, {
+          onSuccess: function(tag) {
+            const tags = tag.tags;
+            if (songTitleEl) songTitleEl.textContent = tags.title || (cfg.title ? cfg.title : 'Unknown Title');
+            if (songArtistEl) songArtistEl.textContent = tags.artist || (cfg.artist ? cfg.artist : 'Unknown Artist');
+            if (!tags.title && !tags.artist && !cfg.title) fallbackFromUrl();
+          },
+          onError: function(error) {
+            console.log('Error reading tags:', error);
+            fallbackFromUrl();
+          }
+        });
+      } else {
+        fallbackFromUrl();
+      }
+    }
+
+    const audioPlaceholder = card.querySelector('audio');
+    if (audioPlaceholder && cfg.audio && sharedAudio && cfg.id === trackConfig.id) {
+      audioPlaceholder.replaceWith(sharedAudio);
+    }
+
+    return card;
+  }
+
+  // Audio Logic
+  function wireAudio(card) {
+    const audio = card.querySelector('audio');
+    if (!audio) { audios.push(null); return; }
+    const myIndex = audios.length;
+    audios.push(audio);
+
+    const btn = card.querySelector('.play-btn');
+    const seek = card.querySelector('.seek');
+    const cur = card.querySelector('.pl-cur');
+    const tot = card.querySelector('.pl-tot');
+    const vol = card.querySelector('.vol');
+    const rew = card.querySelector('.btn-rew');
+    const ff = card.querySelector('.btn-ff');
+    const status = card.querySelector('.player-status');
+    const cfg = PROFILES[myIndex];
+    let fallbackUsed = false;
+
+    const setStatus = (message, error = false) => {
+      if (!status) return;
+      status.textContent = message;
+      status.classList.toggle('error', error);
+    };
+    const updatePlayButton = () => { btn.innerHTML = audio.paused ? PLAY : PAUSE; };
+
+    btn.addEventListener('click', async () => {
+      if (!audio.paused) { audio.pause(); return; }
+      audios.forEach(a => a && a !== audio && a.pause());
+      setStatus('Loading audio…');
+      try {
+        await audio.play();
+        setStatus('Now playing');
+      } catch (err) {
+        setStatus('Playback blocked or audio unavailable. Tap play to retry.', true);
+        console.warn('Audio playback failed:', err);
+      }
+    });
+
+    audio.addEventListener('play', () => { updatePlayButton(); setStatus('Now playing'); });
+    audio.addEventListener('pause', () => { updatePlayButton(); if (!audio.ended) setStatus('Paused'); });
+    audio.addEventListener('ended', () => { updatePlayButton(); setStatus('Finished'); });
+    audio.addEventListener('waiting', () => setStatus('Buffering…'));
+    audio.addEventListener('canplay', () => { if (audio.paused) setStatus('Ready to play'); });
+    audio.addEventListener('loadedmetadata', () => { tot.textContent = fmtTime(audio.duration); });
+    audio.addEventListener('error', () => {
+      const source = audio.querySelector('source');
+      if (!fallbackUsed && cfg.audioFallback && source) {
+        fallbackUsed = true;
+        setStatus('Trying backup GitHub stream…');
+        source.src = cfg.audioFallback;
+        audio.load();
+        if (entered && myIndex === activeIndex) audio.play().catch(() => {});
+      } else {
+        setStatus('GitHub audio could not be loaded. Check the file is public and MP3 encoded.', true);
+      }
+    });
+
+    let lastTime = -1;
+    function syncLoop() {
+      const currentTime = audio.currentTime;
+      if (currentTime !== lastTime) {
+        if (audio.duration) {
+          seek.value = (currentTime / audio.duration) * 100;
+          cur.textContent = fmtTime(currentTime);
+        }
+        if (activeIndex === myIndex) syncLyrics(currentTime);
+        lastTime = currentTime;
+      }
+      requestAnimationFrame(syncLoop);
+    }
+    requestAnimationFrame(syncLoop);
+
+    seek.addEventListener('input', () => { if (audio.duration) audio.currentTime = (Number(seek.value) / 100) * audio.duration; });
+    vol.addEventListener('input', () => { audio.volume = Number(vol.value); });
+    rew.addEventListener('click', () => { audio.currentTime = Math.max(0, audio.currentTime - 10); });
+    ff.addEventListener('click', () => { audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + 10); });
+    card.querySelector('.ly-btn').addEventListener('click', e => {
+      e.currentTarget.classList.toggle('on');
+      if (lyricsOpen) closeLyrics(); else openLyrics(myIndex);
+    });
+    updatePlayButton();
+  }
+
+  // Lyrics Logic
+  const lyricsEl = $('lyrics'), lyBody = $('lyBody');
+  
+  function parseLRC(text) {
+    const out = [];
+    let offset = 0;
+    const lines = String(text).split(/\r?\n/);
+    
+    lines.forEach(line => {
+      const m = line.match(/\[offset:(-?\d+)\]/);
+      if (m) offset = Number(m[1]) / 1000;
+    });
+    
+    lines.forEach(line => {
+      const stamps = [...line.matchAll(/\[(\d+):(\d+(?:\.\d+)?)\]/g)];
+      const words = line.replace(/\[[^\]]*\]/g, '').trim();
+      if (words && stamps.length) {
+        stamps.forEach(m => out.push({ t: Number(m[1]) * 60 + Number(m[2]) + offset, text: words }));
+      }
+    });
+    return out.sort((a, b) => a.t - b.t);
+  }
+
+  async function openLyrics(i) {
+    const cfg = PROFILES[i];
+    lyricsOpen = true;
+    lyricsEl.classList.add('open');
+    
+    const activeCard = document.querySelector('.card.active');
+    if (!activeCard) {
+      lyBody.innerHTML = '<p class="loading">Loading track lyrics…</p>';
+      return;
+    }
+    const titleEl = activeCard.querySelector('[id^="songTitle"]');
+    const artistEl = activeCard.querySelector('[id^="songArtist"]');
+    const displayTitle = titleEl ? titleEl.textContent : (cfg.title || 'Lyrics');
+    const displayArtist = artistEl ? artistEl.textContent : (cfg.artist || '');
+    const audioEl = activeCard.querySelector('audio');
+    const duration = audioEl && audioEl.duration ? Math.round(audioEl.duration) : 0;
+
+    if (lyricCache[i]) {
+      renderLyrics(lyricCache[i].synced, lyricCache[i].plain, i);
+      return;
+    }
+
+    lyBody.innerHTML = '<p class="loading">Loading...</p>';
+
+    let data = { synced: [], plain: '' };
+    if (cfg.lyrics) {
+      const synced = parseLRC(cfg.lyrics);
+      data = synced.length ? { synced, plain: '' } : { synced: [], plain: cfg.lyrics };
+    } else if (displayTitle && displayTitle !== 'Loading...' && displayTitle !== 'Unknown Title') {
+      try {
+        // First request the known recording by exact metadata and runtime.
+        const exactParams = new URLSearchParams({
+          track_name: cfg.title || displayTitle,
+          artist_name: cfg.artist || displayArtist,
+          duration: String(cfg.duration || duration || 174)
+        });
+        const exactRes = await fetch(`https://lrclib.net/api/get?${exactParams}`);
+        let hit = exactRes.ok ? await exactRes.json() : null;
+        // Search is a fallback if the exact metadata endpoint has no match.
+        if (!hit || !hit.syncedLyrics) {
+          const q = encodeURIComponent([cfg.artist || displayArtist, cfg.title || displayTitle].filter(Boolean).join(' '));
+          const searchUrl = `https://lrclib.net/api/search?q=${q}${cfg.duration || duration ? `&duration=${cfg.duration || duration}` : ''}`;
+          const searchRes = await fetch(searchUrl);
+          const list = searchRes.ok ? await searchRes.json() : [];
+          hit = list.find(x => x.syncedLyrics) || list.find(x => x.plainLyrics) || hit;
+        }
+        if (hit?.syncedLyrics) data = { synced: parseLRC(hit.syncedLyrics), plain: '' };
+        else if (hit?.plainLyrics) data = { synced: [], plain: hit.plainLyrics };
+      } catch (err) { console.warn('Lyrics lookup failed:', err); }
+    }
+
+    lyricCache[i] = data;
+    renderLyrics(data.synced, data.plain, i);
+  }
+
+  function renderLyrics(synced, plain, i) {
+    lyricCur = -1;
+    lyricLines = [];
+    if (synced.length) {
+      lyBody.innerHTML = '<div class="ly-pad">' + synced.map((l, n) => `<p class="synced" data-t="${l.t}">${esc(l.text || '♪')}</p>`).join('') + '</div>';
+      lyricLines = [...lyBody.querySelectorAll('p')];
+      lyricLines.forEach(p => p.addEventListener('click', () => {
+        const a = audios[i];
+        if (a) a.currentTime = Number(p.dataset.t);
+      }));
+      lyricLines.times = synced.map(l => l.t);
+      if (audios[i]) syncLyrics(audios[i].currentTime);
+    } else if (plain) {
+      lyBody.innerHTML = '<div class="ly-pad">' + plain.split(/\r?\n/).map(t => `<p>${esc(t) || '&nbsp;'}</p>`).join('') + '</div>';
+      lyricLines = [];
+    } else {
+      lyBody.innerHTML = '<p class="loading">No lyrics found.</p>';
+    }
+  }
+
+  function closeLyrics() {
+    lyricsOpen = false;
+    lyricsEl.classList.remove('open');
+    document.querySelectorAll('.ly-btn').forEach(b => b.classList.remove('on'));
+  }
+  $('lyClose').addEventListener('click', closeLyrics);
+
+  function syncLyrics(time) {
+    if (!lyricLines.length || !lyricLines.times) return;
+    
+    let n = -1;
+    for (let k = 0; k < lyricLines.times.length; k++) {
+      if (lyricLines.times[k] <= time) n = k; else break;
+    }
+    
+    if (n === lyricCur) return;
+    lyricCur = n;
+    
+    lyricLines.forEach((el, k) => el.classList.toggle('cur', k === n));
+    
+    if (n >= 0 && lyricsOpen) {
+      const activeLine = lyricLines[n];
+      const containerHeight = lyBody.clientHeight;
+      const lineTop = activeLine.offsetTop;
+      const lineHeight = activeLine.offsetHeight;
+      
+      const scrollTarget = lineTop - (containerHeight / 2) + (lineHeight / 2);
+      
+      lyBody.scrollTo({
+        top: scrollTarget,
+        behavior: 'smooth'
+      });
+    }
+  }
+
+  // Init
+  async function init() {
+    $('stage').innerHTML = '<div class="spinner" style="margin-top:2rem; color:#666;">Loading...</div>';
+    
+    const results = await Promise.allSettled(PROFILES.map(async p => {
+      const [lanyard, extra] = await Promise.all([fetchLanyard(p.id), fetchExtra(p.id)]);
+      return { cfg: p, lanyard, extra };
+    }));
+
+    $('stage').innerHTML = '';
+    let cards = [], dotEls = [];
+    
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        const card = buildCard(r.value);
+        $('stage').appendChild(card);
+        cards.push(card);
+        wireAudio(card);
+      }
+    });
+
+    const total = cards.length;
+    if (total > 1) {
+      $('pageNum').textContent = `01 / ${String(total).padStart(2, '0')}`;
+      $('next').addEventListener('click', () => { if (activeIndex < total - 1) show(activeIndex + 1); });
+      $('prev').addEventListener('click', () => { if (activeIndex > 0) show(activeIndex - 1); });
+    } else {
+      $('prev').style.display = 'none';
+      $('next').style.display = 'none';
+    }
+
+    function show(i) {
+      activeIndex = i;
+      cards.forEach((c, n) => c.classList.toggle('active', n === i));
+      audios.forEach((a, n) => { if (a && n !== i) a.pause(); });
+      $('pageNum').textContent = `${String(i + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
+      
+      if (lyricsOpen) closeLyrics();
+    }
+
+    show(0);
+    if (entered && audios[activeIndex]) {
+      openLyrics(activeIndex);
+      audios[activeIndex].play().then(() => { audioStarted = true; }).catch(() => {
+        const status = document.querySelector('.player-status');
+        if (status) { status.textContent = 'Tap play to start audio'; status.classList.add('error'); }
+      });
+    }
+  }
+
+  $('entry').addEventListener('click', () => {
+    entered = true;
+    $('entry').classList.add('hidden');
+    $('widget').classList.add('visible');
+    document.body.classList.add('entered');
+
+    // Start synchronously from the Enter click, even if profile cards are still loading.
+    const audio = audios[activeIndex] || sharedAudio;
+    if (audio) {
+      audio.play().then(() => { audioStarted = true; }).catch(err => {
+        console.warn('Autoplay after Enter was rejected:', err);
+        const status = document.querySelector('.player-status');
+        if (status) { status.textContent = 'Tap the play button to start audio'; status.classList.add('error'); }
+      });
+      openLyrics(activeIndex);
+    }
+  });
+
+  // Basic UI deterrents only; browsers still allow source/network inspection.
+  document.addEventListener('contextmenu', event => event.preventDefault());
+  document.addEventListener('keydown', event => {
+    const key = String(event.key || '').toLowerCase();
+    const mod = event.ctrlKey || event.metaKey;
+    const devtoolsShortcut = event.key === 'F12' ||
+      (mod && key === 'u') ||
+      (mod && event.shiftKey && ['i', 'j', 'c'].includes(key));
+    if (devtoolsShortcut) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }, true);
+
+  init();
+</script>
+</body>
+</html>

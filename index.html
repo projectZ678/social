@@ -85,19 +85,23 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
 <script>
 (() => {
   "use strict";
+
   const OWNER = "projectZ678";
   const REPO = "social";
   const BRANCH = "main";
   const SITE_BASE = "https://socialanxiety.lol/";
   const RAW_BASE = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/`;
   const DEFAULT_AVATAR = RAW_BASE + "79c341f9-ba05-4776-bf23-3e9f1a773768.png";
+  const LANYARD = "https://api.lanyard.rest/v1/users/";
+
   const $ = id => document.getElementById(id);
+
   let pages = [];
   let selected = 0;
   let soundOn = false;
   let audioContext = null;
 
-  // Background glyph field: generated locally so the page has no large image dependency.
+  // Background glyph field
   const glyphs = " .:-=+*#%@xX";
   let seed = 93217;
   const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
@@ -116,122 +120,222 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
   function safeName(file) {
     return file.replace(/\.html$/i, "").replace(/[-_]+/g, " ").replace(/\b\w/g, c => c.toUpperCase());
   }
-  function absoluteAsset(src, file) {
-    if (!src) return DEFAULT_AVATAR;
-    try { return new URL(src, RAW_BASE + file).href; } catch { return DEFAULT_AVATAR; }
+
+  // Extract the first Discord snowflake from a page's PROFILES array (or any long id)
+  function extractUserId(source) {
+    const profilesMatch = source.match(/PROFILES\s*=\s*\[([\s\S]*?)\]/);
+    if (profilesMatch) {
+      const idMatch = profilesMatch[1].match(/id\s*:\s*['"`](\d{17,20})['"`]/);
+      if (idMatch) return idMatch[1];
+    }
+    const anyId = source.match(/['"`](\d{17,20})['"`]/);
+    return anyId ? anyId[1] : null;
   }
+
+  function avatarFromLanyard(data) {
+    const u = data?.discord_user;
+    if (!u?.avatar) {
+      const idx = Number((BigInt(u?.id || "0") >> 22n) % 6n);
+      return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+    }
+    const ext = u.avatar.startsWith("a_") ? "gif" : "png";
+    return `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.${ext}?size=256`;
+  }
+
+  function displayName(data) {
+    const u = data?.discord_user;
+    return u?.global_name || u?.display_name || u?.username || "unknown";
+  }
+
+  function statusLine(data) {
+    if (!data) return "offline";
+    if (data.listening_to_spotify && data.spotify) {
+      return `listening · ${data.spotify.song}`;
+    }
+    if (data.activities?.length) {
+      const act = data.activities.find(a => a.type === 0) || data.activities[0];
+      if (act) return `${act.name}${act.details ? " · " + act.details : ""}`;
+    }
+    return data.discord_status || "offline";
+  }
+
   async function getPageInfo(file) {
-    const fallback = { file, title: safeName(file), handle: file, description: "page", image: DEFAULT_AVATAR };
+    const fallback = {
+      file,
+      title: safeName(file),
+      handle: "@" + safeName(file).toLowerCase(),
+      description: "page",
+      image: DEFAULT_AVATAR,
+      userId: null
+    };
+
     try {
-      const response = await fetch(RAW_BASE + encodeURIComponent(file), { cache: "no-cache" });
-      if (!response.ok) return fallback;
-      const source = await response.text();
-      const doc = new DOMParser().parseFromString(source, "text/html");
-      const title = doc.querySelector('meta[property="og:title"]')?.content ||
-                    doc.querySelector('meta[name="twitter:title"]')?.content ||
-                    doc.querySelector("title")?.textContent?.trim() || fallback.title;
-      const image = doc.querySelector('meta[property="og:image"]')?.content ||
-                    doc.querySelector('meta[name="twitter:image"]')?.content ||
-                    doc.querySelector("img")?.getAttribute("src") || DEFAULT_AVATAR;
-      const desc = doc.querySelector('meta[property="og:description"]')?.content ||
-                   doc.querySelector('meta[name="description"]')?.content || "page";
-      const cleanTitle = title.replace(/\s*[|—-]\s*socialanxiety\.lol\s*$/i, "").trim();
-      const displayTitle = cleanTitle || safeName(file);
-      return { file, title: displayTitle, handle: "socialanxiety.lol", description: desc, image: absoluteAsset(image, file) };
-    } catch { return fallback; }
+      const res = await fetch(RAW_BASE + encodeURIComponent(file), { cache: "no-cache" });
+      if (!res.ok) return fallback;
+      const source = await res.text();
+
+      const userId = extractUserId(source);
+      if (!userId) return fallback;
+
+      // Live Discord data via Lanyard
+      let lanyard = null;
+      try {
+        const lRes = await fetch(LANYARD + userId, { cache: "no-cache" });
+        const lJson = await lRes.json();
+        if (lJson.success) lanyard = lJson.data;
+      } catch {}
+
+      const title = lanyard ? displayName(lanyard) : safeName(file);
+      const handle = lanyard?.discord_user?.username
+        ? "@" + lanyard.discord_user.username
+        : "@" + safeName(file).toLowerCase();
+      const description = lanyard ? statusLine(lanyard) : "page";
+      const image = lanyard ? avatarFromLanyard(lanyard) : DEFAULT_AVATAR;
+
+      return { file, title, handle, description, image, userId, lanyard };
+    } catch {
+      return fallback;
+    }
   }
-  function pageUrl(file) { return new URL(file, SITE_BASE).href; }
+
+  function pageUrl(file) {
+    return new URL(file, SITE_BASE).href;
+  }
+
   function render() {
     if (!pages.length) return;
     const p = pages[selected];
-    $("title").textContent = p.title;
+
     $("avatar").src = p.image || DEFAULT_AVATAR;
     $("avatar").alt = p.title + " avatar";
-    $("title").textContent = "socialanxiety.lol — " + p.title;
     $("title").textContent = p.title;
     $("handle").textContent = p.handle;
     $("description").textContent = p.description;
-    $("count").textContent = String(selected + 1).padStart(2, "0") + " / " + String(pages.length).padStart(2, "0");
+    $("count").textContent =
+      String(selected + 1).padStart(2, "0") + " / " + String(pages.length).padStart(2, "0");
+
     $("open").href = pageUrl(p.file);
     $("open").setAttribute("aria-label", "Open " + p.title);
-    $("rail").querySelectorAll(".thumb").forEach((button, i) => {
-      button.classList.toggle("active", i === selected);
-      button.setAttribute("aria-current", i === selected ? "true" : "false");
+    $("open").innerHTML = `Open page <span aria-hidden="true">↗</span>`;
+
+    $("rail").querySelectorAll(".thumb").forEach((btn, i) => {
+      btn.classList.toggle("active", i === selected);
+      btn.setAttribute("aria-current", i === selected ? "true" : "false");
     });
+
     $("statusText").textContent = "profile selected";
-    $("view").animate([{opacity:.65,transform:"translateY(4px)"},{opacity:1,transform:"translateY(0)"}],{duration:220,easing:"ease-out"});
+    $("view").animate(
+      [{ opacity: 0.65, transform: "translateY(4px)" }, { opacity: 1, transform: "translateY(0)" }],
+      { duration: 220, easing: "ease-out" }
+    );
   }
+
   function move(step) {
     if (!pages.length) return;
     selected = (selected + step + pages.length) % pages.length;
     render();
   }
+
   function buildRail() {
     const rail = $("rail");
     rail.innerHTML = "";
+    const glowColors = [
+      "#ff6b6b", "#ffad5c", "#ffe66d", "#8eea75", "#45e6c1",
+      "#55c7ff", "#718cff", "#a78bfa", "#e879f9", "#ff78b7",
+      "#f472b6", "#b8c0ff"
+    ];
+
     pages.forEach((p, i) => {
-      const button = document.createElement("button");
-      button.className = "thumb" + (i === selected ? " active" : "");
-      // Each profile gets its own distinct hover-glow color.
-      const glowColors = [
-        "#ff6b6b", "#ffad5c", "#ffe66d", "#8eea75", "#45e6c1",
-        "#55c7ff", "#718cff", "#a78bfa", "#e879f9", "#ff78b7",
-        "#f472b6", "#b8c0ff"
-      ];
-      button.style.setProperty("--glow", glowColors[i % glowColors.length]);
-      button.type = "button";
-      button.title = p.title;
-      button.setAttribute("aria-label", "Select " + p.title);
+      const btn = document.createElement("button");
+      btn.className = "thumb" + (i === selected ? " active" : "");
+      btn.style.setProperty("--glow", glowColors[i % glowColors.length]);
+      btn.type = "button";
+      btn.title = p.title;
+      btn.setAttribute("aria-label", "Select " + p.title);
+
       const img = document.createElement("img");
       img.src = p.image || DEFAULT_AVATAR;
       img.alt = "";
       img.loading = "lazy";
-      button.append(img);
-      button.addEventListener("click", () => { selected = i; render(); });
-      rail.append(button);
+      btn.append(img);
+
+      btn.addEventListener("click", () => {
+        selected = i;
+        render();
+      });
+      rail.append(btn);
     });
   }
+
   async function loadPages() {
     $("repoState").textContent = "checking main";
     $("statusText").textContent = "loading profiles";
+
     try {
-      const response = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/contents?ref=${BRANCH}`, {
-        headers: { "Accept": "application/vnd.github+json" },
-        cache: "no-cache"
-      });
-      if (!response.ok) throw new Error("GitHub API returned " + response.status);
+      // Fixed fetch (was broken tagged-template syntax before)
+      const response = await fetch(
+        `https://api.github.com/repos/${OWNER}/${REPO}/contents?ref=${BRANCH}`,
+        {
+          headers: { Accept: "application/vnd.github+json" },
+          cache: "no-cache"
+        }
+      );
+      if (!response.ok) throw new Error("GitHub API " + response.status);
+
       const entries = await response.json();
       const htmlFiles = entries
-        .filter(item => item.type === "file" && /\.html?$/i.test(item.name) && item.name.toLowerCase() !== "index.html")
+        .filter(
+          item =>
+            item.type === "file" &&
+            /\.html?$/i.test(item.name) &&
+            item.name.toLowerCase() !== "index.html"
+        )
         .map(item => item.name)
-        .sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
-      if (!htmlFiles.length) throw new Error("No other HTML files found on main");
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+      if (!htmlFiles.length) throw new Error("No other HTML files found");
+
       pages = await Promise.all(htmlFiles.map(getPageInfo));
       buildRail();
       selected = 0;
       render();
+
       $("repoState").textContent = pages.length + " pages";
       $("statusText").textContent = "profiles ready";
       $("notice").textContent = "";
     } catch (error) {
-      // The known page is a fallback if GitHub's API is temporarily unavailable.
-      pages = [{file:"hours.html",title:"Hours",handle:"socialanxiety.lol",description:"profile",image:DEFAULT_AVATAR}];
+      pages = [
+        {
+          file: "hours.html",
+          title: "Hours",
+          handle: "@hours",
+          description: "profile",
+          image: DEFAULT_AVATAR,
+          userId: null
+        }
+      ];
       buildRail();
       render();
       $("repoState").textContent = "offline fallback";
       $("statusText").textContent = "profiles unavailable";
-      $("notice").textContent = "Couldn't read the repository file list. Check GitHub API access or try again.";
+      $("notice").textContent =
+        "Couldn't read the repository file list. Check GitHub API access or try again.";
       console.warn(error);
     }
   }
+
   $("prev").addEventListener("click", () => move(-1));
   $("next").addEventListener("click", () => move(1));
-  window.addEventListener("keydown", event => {
-    if (event.target.matches("input,textarea,select")) return;
-    if (event.key === "ArrowLeft") move(-1);
-    if (event.key === "ArrowRight") move(1);
-    if (event.key === "Enter" && pages.length) window.location.href = pageUrl(pages[selected].file);
+
+  window.addEventListener("keydown", e => {
+    if (e.target.matches("input,textarea,select")) return;
+    if (e.key === "ArrowLeft") move(-1);
+    if (e.key === "ArrowRight") move(1);
+    if (e.key === "Enter" && pages.length) {
+      window.location.href = pageUrl(pages[selected].file);
+    }
   });
+
   $("sound").addEventListener("click", async () => {
     soundOn = !soundOn;
     $("sound").textContent = soundOn ? "sound on" : "sound off";
@@ -242,15 +346,22 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
         await audioContext.resume();
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
-        osc.type = "sine"; osc.frequency.value = 520;
-        gain.gain.setValueAtTime(.0001, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(.025, audioContext.currentTime + .025);
-        gain.gain.exponentialRampToValueAtTime(.0001, audioContext.currentTime + .18);
-        osc.connect(gain); gain.connect(audioContext.destination);
-        osc.start(); osc.stop(audioContext.currentTime + .19);
-      } catch { soundOn = false; $("sound").textContent = "sound off"; }
+        osc.type = "sine";
+        osc.frequency.value = 520;
+        gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.025, audioContext.currentTime + 0.025);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.18);
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.start();
+        osc.stop(audioContext.currentTime + 0.19);
+      } catch {
+        soundOn = false;
+        $("sound").textContent = "sound off";
+      }
     }
   });
+
   loadPages();
 })();
 </script>

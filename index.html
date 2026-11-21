@@ -9,50 +9,67 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Pirata+One&display=swap" rel="stylesheet">
 <style>
-:root{color-scheme:dark;--bg:#000;--panel:#000;--line:rgba(255,255,255,.08)}
+:root{color-scheme:dark;--line:rgba(255,255,255,.08)}
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;background:#000;color:#ededed;font-family:Inter,system-ui,sans-serif}
 body{overflow:hidden}
-#ascii{position:fixed;inset:-4%;z-index:0;overflow:hidden;pointer-events:none;user-select:none;white-space:pre;font:clamp(7px,.65vw,11px)/1.2 monospace;letter-spacing:.03em;color:#555;opacity:.22;filter:blur(.7px);transform:scale(1.03);transition:opacity .5s,filter .5s}
-body:hover #ascii{opacity:.32;filter:blur(0)}
-#shade{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(ellipse at center,transparent 0%,rgba(0,0,0,.6) 60%,#000 115%)}
+
+/* ---------- background ascii ---------- */
+#ascii{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;user-select:none;display:flex;align-items:center;justify-content:center}
+#ascii pre{margin:0;white-space:pre;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;line-height:1;color:#909090;opacity:.2;filter:blur(1.1px);transition:opacity .6s ease,filter .6s ease;will-change:font-size}
+body:hover #ascii pre{opacity:.32;filter:blur(.6px)}
+
+/* ---------- shell (fully transparent) ---------- */
 .shell{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;padding:clamp(18px,3vw,42px);max-width:1900px;margin:auto}
 .top{display:flex;align-items:center;justify-content:space-between;gap:20px;font-size:13px;color:#8c8c8c}
-.brand{font-family:Georgia,serif;font-size:clamp(18px,2vw,27px);font-weight:700;letter-spacing:-.04em;color:#e7e7e7;text-decoration:none}
+.brand{font-family:Georgia,serif;font-size:clamp(18px,2vw,27px);font-weight:700;letter-spacing:-.04em;color:#e7e7e7;text-decoration:none;background:none}
 .top-right{display:flex;align-items:center;gap:22px;font:12px/1.2 ui-monospace,monospace}
 .sound{border:0;background:none;color:#777;font:inherit;cursor:pointer;transition:color .2s}
 .sound:hover{color:#fff}
+
 main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
-.view{width:min(100%,760px);display:flex;flex-direction:column;align-items:center;text-align:center;animation:enter .45s ease both;transform:scale(.88);transform-origin:center}
+.view{width:min(100%,760px);display:flex;flex-direction:column;align-items:center;text-align:center;animation:enter .45s ease both;transform-origin:center}
 @keyframes enter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.avatar{width:clamp(58px,6vw,82px);height:clamp(58px,6vw,82px);border-radius:50%;object-fit:cover;background:#000;border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 40px #0008;transition:transform .35s,filter .35s}
-.avatar:hover{transform:translateY(-4px) scale(1.04);filter:brightness(1.08)}
-.heading{font-family:"Pirata One",Georgia,serif;font-size:clamp(70px,13vw,150px);line-height:.9;letter-spacing:-.02em;font-weight:400;margin:28px 0 18px;color:#eee;text-shadow:0 8px 35px #fff1;max-width:100%;overflow-wrap:anywhere}
-.handle{font:12px ui-monospace,SFMono-Regular,monospace;color:#8a8a8a;letter-spacing:.04em;margin:0 0 24px}
-.meta{font:11px ui-monospace,monospace;color:#555;letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px}
+
+.avatar{width:clamp(58px,6vw,82px);height:clamp(58px,6vw,82px);border-radius:50%;object-fit:cover;background:transparent;border:1px solid rgba(255,255,255,.12);box-shadow:0 10px 40px #0006;transition:transform .35s,filter .35s,border-color .35s;backdrop-filter:blur(2px)}
+.avatar:hover{transform:translateY(-4px) scale(1.04);filter:brightness(1.08);border-color:rgba(255,255,255,.35)}
+
+.heading{font-family:"Pirata One",Georgia,serif;font-size:clamp(70px,13vw,150px);line-height:.9;letter-spacing:-.02em;font-weight:400;margin:26px 0 14px;color:#eee;text-shadow:0 8px 35px #fff1;max-width:100%;overflow-wrap:anywhere;background:none}
+.handle{font:12px ui-monospace,SFMono-Regular,monospace;color:#8a8a8a;letter-spacing:.04em;margin:0 0 16px}
+.meta{font:11px ui-monospace,monospace;color:#666;letter-spacing:.1em;text-transform:uppercase;margin:0 0 18px;max-width:60ch}
+
+/* ---------- badges ---------- */
+.badges{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:0 0 22px;padding:0;background:none;max-width:min(100%,560px)}
+.badges:empty{display:none}
+.badge{display:inline-flex;align-items:center;gap:7px;padding:5px 10px;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:transparent;color:#b6b6b6;font:10px/1.2 ui-monospace,SFMono-Regular,monospace;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;transition:border-color .2s,color .2s,transform .2s;backdrop-filter:blur(2px)}
+.badge:hover{border-color:rgba(255,255,255,.4);color:#fff;transform:translateY(-1px)}
+.badge img{width:14px;height:14px;object-fit:contain;display:block;filter:grayscale(1) brightness(1.25)}
+.badge:hover img{filter:grayscale(0) brightness(1.1)}
+
 .actions{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 0 22px}
-.arrow{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:#000;color:#aaa;font-size:20px;display:grid;place-items:center;cursor:pointer;transition:transform .2s,border-color .2s,color .2s,background .2s}
-.arrow:hover{transform:scale(1.08);border-color:rgba(255,255,255,.3);background:#111;color:#fff}
+.arrow{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:transparent;color:#aaa;font-size:20px;display:grid;place-items:center;cursor:pointer;transition:transform .2s,border-color .2s,color .2s;backdrop-filter:blur(2px)}
+.arrow:hover{transform:scale(1.08);border-color:rgba(255,255,255,.32);color:#fff}
 .arrow:active{transform:scale(.96)}
 .count{font:12px ui-monospace,monospace;color:#666;min-width:74px}
-.open{display:inline-flex;align-items:center;gap:10px;padding:11px 17px;border:1px solid rgba(255,255,255,.15);border-radius:999px;background:#000;color:#ddd;text-decoration:none;font-size:12px;letter-spacing:.02em;transition:background .2s,border-color .2s,transform .2s}
-.open:hover{background:#111;border-color:#ffffff40;transform:translateY(-2px)}
+
 .rail-wrap{width:min(100%,680px);margin-top:2px}
 .rail{display:flex;align-items:center;justify-content:center;gap:clamp(10px,1.6vw,18px);flex-wrap:wrap}
-.thumb{width:clamp(40px,4vw,56px);height:clamp(40px,4vw,56px);border-radius:50%;border:1px solid rgba(255,255,255,.1);background:#000;padding:0;cursor:pointer;overflow:hidden;opacity:.5;filter:grayscale(1);transition:transform .22s,opacity .22s,filter .22s,border-color .22s,box-shadow .22s}
+.thumb{width:clamp(40px,4vw,56px);height:clamp(40px,4vw,56px);border-radius:50%;border:1px solid rgba(255,255,255,.1);background:transparent;padding:0;cursor:pointer;overflow:hidden;opacity:.5;filter:grayscale(1);transition:transform .22s,opacity .22s,filter .22s,border-color .22s,box-shadow .22s}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .thumb:hover{opacity:1;transform:translateY(-3px) scale(1.08);filter:grayscale(0);border-color:rgba(255,255,255,.6);box-shadow:0 0 12px rgba(255,255,255,.25)}
 .thumb.active{opacity:1;filter:grayscale(0);border-color:#fff;transform:scale(1.07);box-shadow:0 0 0 3px rgba(255,255,255,.08)}
-.footer{display:flex;justify-content:space-between;align-items:center;gap:15px;color:#555;font:10px ui-monospace,monospace}
+
+.footer{display:flex;justify-content:space-between;align-items:center;gap:15px;color:#555;font:10px ui-monospace,monospace;background:none}
 .status{display:flex;align-items:center;gap:8px}
 .pulse{width:5px;height:5px;border-radius:50%;background:#777;box-shadow:0 0 9px #7777}
 #notice{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);font:12px ui-monospace,monospace;color:#888;text-align:center;max-width:90%;z-index:5}
-@media(max-width:600px){.shell{padding:18px}.top-right{gap:10px}.heading{margin:22px 0 14px}.actions{margin-bottom:22px}.footer{font-size:9px}.rail{gap:8px}.thumb{width:38px;height:38px}}
+@media(max-width:600px){.shell{padding:18px}.top-right{gap:10px}.heading{margin:20px 0 12px}.footer{font-size:9px}.rail{gap:8px}.thumb{width:38px;height:38px}.badge{font-size:9px;padding:4px 8px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
-<div id="ascii" aria-hidden="true"></div><div id="shade"></div>
+<div id="ascii" aria-hidden="true"><pre id="asciiArt"></pre></div>
+
 <div class="shell">
   <header class="top">
     <a class="brand" href="./">social</a>
@@ -67,12 +84,12 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
       <h1 class="heading" id="title">social</h1>
       <p class="handle" id="handle">socialanxiety.lol</p>
       <div class="meta" id="description">account / page</div>
+      <div class="badges" id="badges" aria-label="Badges"></div>
       <div class="actions">
         <button class="arrow" id="prev" type="button" aria-label="Previous account">‹</button>
         <span class="count" id="count">— / —</span>
         <button class="arrow" id="next" type="button" aria-label="Next account">›</button>
       </div>
-      <a class="open" id="open" href="hours">Open page <span aria-hidden="true">↗</span></a>
       <div class="rail-wrap"><nav class="rail" id="rail" aria-label="Choose a page"></nav></div>
     </section>
   </main>
@@ -82,6 +99,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
   </footer>
 </div>
 <div id="notice" role="status"></div>
+
 <script>
 (() => {
   "use strict";
@@ -93,28 +111,63 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
   const CDN_BASE = `https://cdn.jsdelivr.net/gh/${OWNER}/${REPO}@${BRANCH}/`;
   const DEFAULT_AVATAR = RAW_BASE + "79c341f9-ba05-4776-bf23-3e9f1a773768.png";
   const $ = id => document.getElementById(id);
+
   let pages = [];
   let selected = 0;
   let soundOn = false;
   let audioContext = null;
 
-  /* ---------- background glyph field ---------- */
-  const glyphs = " .:-=+*#%@xX";
-  let seed = 93217;
-  const rand = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
-  let art = "";
-  for (let y = 0; y < 105; y++) {
-    let line = "";
-    for (let x = 0; x < 250; x++) {
-      const center = Math.abs(x - 125) / 125;
-      const density = Math.max(0, 1 - center * .82);
-      line += rand() < density * .7 ? glyphs[Math.floor(rand() * glyphs.length)] : " ";
-    }
-    art += line + "\n";
-  }
-  $("ascii").textContent = art;
+  /* ================= background ascii art ================= */
+  const ART = `#***#*****####**#****++===+*=----=#=...................=*+++++*##*#*#%##******************************************###****#%*+++++*+:..................-+===------:::::=++=-==--=========++=+**++
+#**********#%#******=++++++++-----+....................+*++++*#####*#%#****#******************************************####*****##*++++**-...................====------:::::=++=-=======+=====++=+**++
+*************##****+--++++++*=---=-....................**+++*###**#*#%##*###******************************************###*******##*+++**-...................-+==------:::::=++=========++++++++++++++
+++++++++++++++***+++---=++++*+=--+....................:++*+*#####*###%##########***#*****************************###*******##*+++*#-...................:+===-----::::-=+++====++++++++++++++++++
+###################*=----=+++*+-==....................===**#########%########*##***##****************************####******###*+**+-....................===-------:::-=+*++******###############
+%%%%%%%%%%%%%%%%%%%#=------=+*#++:....................+--=########################******###******************#***##############*+===....................-===------:::-=+***#######%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%#=----------+*:...................:+--+#########%##################******************#****#***##############*=-==....................:===-------::-=+***######%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%#=----------==....................==-=########################################*########*********######+==+*##+-==-....................+===------::-=*****######%%%%%%%%%%%%%%
+##%######%%%%%%%%%%#=----------=-....................*-=##*#######%#########################################*****#####%#+=====+##=-+=....................====---------=**********#######%%%%%%%%
+**##*##**#%%%%%%%%%#=----------+:...................-+=%#+++########################***###############################*+========+*==+:...................====---------=**++++++*****##**#%%%%%%#
+##########%%%%%%%%%#=---------=+:...................+=%#+++++#########################################################+=========+++=+-...................====-------:-=*++++++++****#***########
+######*####%%%%%%%%#=---------==:..................:*#*++++++*#######################################################++=========+=++==:..................=+==-------:-=**+++++++****##*########*
+#*##*****###%%#%%###=---------=-...................=#*++++++++*#%###################################################*+==+====++==++++*-..................-+==---------=**+++++******##**#######*
+**#******###%######*=---------+-..................:#*++++++++++####################################################*+==+=++==++++++++*+:.................-+===--------=**+++++++****#***#######*
+*###****############=--------=+:..................-*+++++++++++*##################################################*++++++++++++++++++*#=.................:+===--------=**++++++*****#***########
+####****############=--------==:.................:*+++++++++++++*#################################################++++=+++=+++++++++++**:................:+====-------=**+++********#***########
+####****####%######*=-------===:.................++++++++++++++++################################################*+++++++++++++++++++++*+................:+====-------=**+++********##**########
+#####**#####%#######=====----+-.................-+++++++++++++++++##############################################*+++++++++++++++++++++++*-...............:+====-------=**++++*******##**########
+*###****####%#######=====---=+-................:++++++++++++++++++*#############################################++++++++++++++++++==++++++++++-...............+====-------=**+++*****#*###**########
+####****############=======-=+-................++++++++++++++++++++############################################*++++++++++=+=====+++++++++*-..............+====-------=***+******#####**########
+####****########%%##=========+:...............-+++++++++++++++++++++###########################################++++++++++===========+++++++*:.............++===-------=**********#####*######%##
+####****####%####%##========+=:..............:=++++++++=====++++++++*#########################################++++++++++============++++++++*.............++===-------=+********################
+#####****###%####%##========+=:..............=+++++++=======+++++++++*#######################################*++++++++++==============++++++++............=+====------=+********################
+#####***#########%##========+-..............-+++++++==========++++++++#######################################++++++++++===============+++++++*=...........=+====------=+********################
+*###****#########%##========+-.............:=+++++++==========+++++++++%####################################++++++++++================++++++++*-..........-+=====-----=+*********#####**########
+*********###########========+-.............-++++++++==========+++++++++*%#################################%*+++++++++=================++++++++++..........:*+===------=**++++++*******+*****##**
+*********##########*=========:............:=++++++++==========++++++++++*##################################+++++++++++=================++++++++*=:...:::-====+*==-----=**+++++++******+*********
+*********##########*=========:...........:-*++++++++===========++++++++++################################%++++++++++++================++++++++++*=-:::::.....:*===----+*************************
+*******************+====++++=:...........:++++++++++===========++++++++++*##############################%*++++++++++++================+++++++++++:............*===---=+**++++++++++++*+*+*******
+*******************+===++:-======--::::::=*+++++++++===========+++++++++++*#############################%+++++++++++++================+++++++++++=............+====--=+**++++++++***************`;
 
-  /* ---------- helpers ---------- */
+  const ART_LINES = ART.split("\n");
+  const ART_ROWS = ART_LINES.length;
+  const ART_COLS = ART_LINES.reduce((m, l) => Math.max(m, l.length), 0);
+  const CHAR_RATIO = 0.6; /* monospace width / height */
+
+  $("asciiArt").textContent = ART;
+
+  function fitArt() {
+    const fs = Math.max(
+      window.innerWidth / (ART_COLS * CHAR_RATIO),
+      window.innerHeight / ART_ROWS
+    );
+    $("asciiArt").style.fontSize = fs.toFixed(2) + "px";
+  }
+  fitArt();
+  window.addEventListener("resize", fitArt);
+  window.addEventListener("orientationchange", fitArt);
+
+  /* ================= helpers ================= */
   const safeName = file =>
     file.replace(/\.html?$/i, "").replace(/[-_]+/g, " ")
         .replace(/\b\w/g, c => c.toUpperCase());
@@ -151,7 +204,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     } catch { return DEFAULT_AVATAR; }
   }
 
-  /* ---------- fetch raw + jsDelivr fallback ---------- */
+  /* ================= fetch raw + jsDelivr fallback ================= */
   async function fetchSource(file) {
     const path = encodePath(file);
     for (const url of [RAW_BASE + path, CDN_BASE + path]) {
@@ -179,7 +232,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     return out;
   }
 
-  /* ---------- profile extraction ---------- */
+  /* ================= profile extraction ================= */
   function pickValue(doc, selectors, isValid) {
     for (const sel of selectors) {
       let el = null;
@@ -190,6 +243,71 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
       if (raw && (!isValid || isValid(raw))) return raw;
     }
     return "";
+  }
+
+  /* ---------- badges from raw html ---------- */
+  function extractBadges(doc, jsonBlobs, file) {
+    const out = [];
+    const seen = new Set();
+
+    const add = (label, img) => {
+      label = (label || "").replace(/\s+/g, " ").trim().slice(0, 40);
+      img = (img || "").trim();
+      if (!label && !img) return;
+      const key = (img || "") + "::" + label.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ label, img: img ? absoluteAsset(img, file) : "" });
+    };
+
+    const fromEl = el => {
+      if (!el || el.nodeType !== 1) return;
+      if (el.tagName === "IMG") {
+        add(el.getAttribute("alt") || el.getAttribute("title") || "", el.getAttribute("src") || "");
+        return;
+      }
+      const attr = el.getAttribute && el.getAttribute("data-badge");
+      if (attr) add(attr, "");
+      const img = el.querySelector ? el.querySelector("img") : null;
+      const text = (el.textContent || "").replace(/\s+/g, " ").trim();
+      if (img) add(text || img.getAttribute("alt") || "", img.getAttribute("src") || "");
+      else if (text && text.length <= 40) add(text, "");
+    };
+
+    /* 1. data-badges="a,b,c" */
+    doc.querySelectorAll("[data-badges]").forEach(el => {
+      const raw = el.getAttribute("data-badges") || "";
+      raw.split(/[,|;]/).forEach(part => add(part, ""));
+    });
+
+    /* 2. badge containers */
+    const containers = [...doc.querySelectorAll(
+      "#badges, .badges, .badge-list, .badges-list, .badge-row, .badges-wrap, .user-badges, .profile-badges"
+    )].filter(el => el !== doc.body && el !== doc.documentElement);
+
+    containers.forEach(c => {
+      const kids = [...c.children];
+      if (kids.length) kids.forEach(fromEl);
+      else fromEl(c);
+    });
+
+    /* 3. individual badge elements */
+    doc.querySelectorAll("[data-badge], .badge, .user-badge, .profile-badge").forEach(fromEl);
+
+    /* 4. structured data */
+    jsonBlobs.forEach(obj => {
+      if (!obj || typeof obj !== "object") return;
+      const b = obj.badges || obj.badge;
+      if (!Array.isArray(b)) return;
+      b.forEach(x => {
+        if (typeof x === "string") add(x, "");
+        else if (x && typeof x === "object") {
+          add(x.name || x.label || x.title || x.text || "", x.image || x.icon || x.src || x.url || "");
+        }
+      });
+    });
+
+    return out.slice(0, 14);
   }
 
   function extractProfile(source, file) {
@@ -305,10 +423,19 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
       if (preferred) image = preferred.getAttribute("src");
     }
 
-    return { title, handle, description, image: absoluteAsset(image, file) };
+    /* ---- badges ---- */
+    const badges = extractBadges(doc, jsonBlobs, file);
+
+    return {
+      title,
+      handle,
+      description,
+      image: absoluteAsset(image, file),
+      badges
+    };
   }
 
-  /* ---------- discord id discovery (raw source scan) ---------- */
+  /* ================= discord id discovery ================= */
   function findDiscordId(src) {
     const patterns = [
       /discord(?:app)?\.com\/users\/(\d{15,20})/i,
@@ -352,7 +479,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     finally { clearTimeout(t); }
   }
 
-  /* ---------- lanyard lookup ---------- */
+  /* ================= lanyard lookup ================= */
   const discordCache = new Map();
   async function fetchDiscord(id) {
     if (discordCache.has(id)) return discordCache.get(id);
@@ -373,14 +500,17 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
           };
         }
       }
-      return null; // not in the Lanyard server, or API down
+      return null;
     })();
     discordCache.set(id, job);
     return job;
   }
 
   async function getPageInfo(file) {
-    const fallback = { file, title: safeName(file), handle: SITE, description: "profile", image: DEFAULT_AVATAR };
+    const fallback = {
+      file, title: safeName(file), handle: SITE, description: "profile",
+      image: DEFAULT_AVATAR, badges: [], presence: ""
+    };
     const source = await fetchSource(file);
     if (!source) return fallback;
 
@@ -393,6 +523,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
       handle: parsed.handle || fallback.handle,
       description: parsed.description || fallback.description,
       image: parsed.image || fallback.image,
+      badges: parsed.badges || [],
       presence: ""
     };
     if (!id) return info;
@@ -412,7 +543,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     return info;
   }
 
-  /* ---------- clean URLs (/name, no .html) ---------- */
+  /* ================= clean urls ================= */
   function pageUrl(file) {
     return new URL("/" + cleanName(file), location.origin).href;
   }
@@ -428,7 +559,26 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     return p.replace(/^\/+|\/+$/g, "").replace(/\.html?$/i, "").toLowerCase();
   }
 
-  /* ---------- rendering ---------- */
+  /* ================= rendering ================= */
+  function renderBadges(list) {
+    const wrap = $("badges");
+    wrap.innerHTML = "";
+    (list || []).forEach(b => {
+      const chip = document.createElement("span");
+      chip.className = "badge";
+      if (b.img) {
+        const img = document.createElement("img");
+        img.src = b.img;
+        img.alt = b.label || "";
+        img.loading = "lazy";
+        img.addEventListener("error", () => img.remove());
+        chip.append(img);
+      }
+      if (b.label) chip.append(document.createTextNode(b.label));
+      if (chip.childNodes.length) wrap.append(chip);
+    });
+  }
+
   function render() {
     if (!pages.length) return;
     const p = pages[selected];
@@ -437,11 +587,10 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     $("title").textContent = p.title;
     $("handle").textContent = p.handle;
     $("description").textContent = p.description;
+    renderBadges(p.badges);
     $("count").textContent = String(selected + 1).padStart(2, "0") + " / " + String(pages.length).padStart(2, "0");
     const dot = { online: "#3ba55d", idle: "#faa81a", dnd: "#ed4245" }[p.presence] || "#777";
     document.querySelector(".pulse").style.cssText = `background:${dot};box-shadow:0 0 9px ${dot}`;
-    $("open").href = pageUrl(p.file);
-    $("open").setAttribute("aria-label", "Open " + p.title);
     $("rail").querySelectorAll(".thumb").forEach((btn, i) => {
       btn.classList.toggle("active", i === selected);
       btn.setAttribute("aria-current", i === selected ? "true" : "false");
@@ -481,7 +630,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     });
   }
 
-  /* ---------- load ---------- */
+  /* ================= load ================= */
   async function loadPages() {
     $("repoState").textContent = "checking main";
     $("statusText").textContent = "loading profiles";
@@ -517,7 +666,10 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
       $("repoState").textContent = pages.length + " pages";
       $("notice").textContent = "";
     } catch (error) {
-      pages = [{ file: "hours.html", title: "Hours", handle: SITE, description: "profile", image: DEFAULT_AVATAR }];
+      pages = [{
+        file: "hours.html", title: "Hours", handle: SITE, description: "profile",
+        image: DEFAULT_AVATAR, badges: [], presence: ""
+      }];
       selected = 0;
       buildRail();
       render();
@@ -528,7 +680,7 @@ main{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
     }
   }
 
-  /* ---------- events ---------- */
+  /* ================= events ================= */
   $("prev").addEventListener("click", () => move(-1));
   $("next").addEventListener("click", () => move(1));
   window.addEventListener("keydown", e => {

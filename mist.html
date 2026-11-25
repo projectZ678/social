@@ -202,36 +202,33 @@ const configured = CONFIG.url.startsWith("https://") &&
 // Capture the auth link type before Supabase changes the URL.
 const linkType = new URLSearchParams(location.hash.slice(1)).get("type");
 
-// ───────────────────── DESKTOP APP HANDOFF ─────────────────────
-// Mist may open this page with:
-// ?redirect=http://127.0.0.1:PORT/callback&state=32+hex+characters
-// Only localhost callback URLs and a valid state token are accepted.
+// ───────────────────── WEBSITE → DESKTOP HANDOFF ─────────────────────
+// Mist opens this hosted page with ?state=<64 hex chars>. The browser never
+// redirects to localhost; it writes a one-time handoff to Supabase instead.
 const qs = new URLSearchParams(location.search);
 const handoff = (() => {
-  const redirect = qs.get("redirect");
   const state = qs.get("state");
-  if (!/^http:\/\/(127\.0\.0\.1|localhost):\d{2,5}\/callback$/.test(redirect || "")) return null;
-  const portMatch = redirect.match(/:(\d{2,5})\/callback$/);
-  const port = portMatch ? Number(portMatch[1]) : 0;
-  if (port < 1 || port > 65535) return null;
-  if (!/^[0-9a-f]{32,128}$/i.test(state || "")) return null;
-  return { redirect, state };
+  if (!/^[0-9a-f]{48,128}$/i.test(state || "")) return null;
+  return { state };
 })();
-
 let handedOff = false;
 
 async function sendToApp(session) {
-  if (!handoff || handedOff || !session?.refresh_token) return;
+  if (!handoff || handedOff || !session?.refresh_token || !sb) return;
   handedOff = true;
   view("signed-in");
-  $("signed-in-msg").textContent = "Returning to Mist…";
-
-  // This matches Mist's local callback protocol.
-  // The refresh token is sent only to the validated loopback callback.
-  const callback = new URL(handoff.redirect);
-  callback.searchParams.set("state", handoff.state);
-  callback.searchParams.set("refresh_token", session.refresh_token);
-  location.replace(callback.toString());
+  $("signed-in-msg").textContent = "Signed in. Mist is connecting…";
+  try {
+    const { data, error } = await sb.rpc("mist_handoff_put", {
+      p_state: handoff.state,
+      p_refresh_token: session.refresh_token,
+    });
+    if (error || data !== true) throw error || new Error("Handoff wasn't accepted.");
+    $("signed-in-msg").textContent = "You're signed in. Return to Mist — you can close this tab.";
+  } catch (err) {
+    handedOff = false;
+    $("signed-in-msg").textContent = "Couldn't connect to Mist. Apply the handoff SQL to Supabase and try again.";
+  }
 }
 
 let sb = null;
@@ -400,8 +397,7 @@ if (sb) {
       return;
     }
     if (session) {
-      if (handoff) {
-        // Supabase auth event callback runs after successful login or email confirmation.
+      if (handoff && linkType !== "recovery") {
         sendToApp(session);
         return;
       }

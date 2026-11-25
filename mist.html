@@ -1,0 +1,850 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#050505">
+<title>Mist — Sign in</title>
+
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #050505;
+  --card: #0b0b0b;
+  --fg: #f5f5f5;
+  --muted: #888;
+  --border: rgba(255,255,255,.09);
+  --input: #101010;
+  --accent: #fff;
+  --ok: #4ade80;
+  --err: #f87171;
+  --radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 Inter, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  width: 500px;
+  height: 500px;
+  top: -240px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    circle,
+    rgba(255,255,255,.055),
+    transparent 68%
+  );
+  pointer-events: none;
+}
+
+button, input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.wrap {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  position: relative;
+  z-index: 1;
+}
+
+.brand {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -.6px;
+}
+
+.brand-mark {
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.8);
+  border-radius: 6px;
+  transform: rotate(-8deg);
+}
+
+.brand-mark::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background: white;
+}
+
+.card {
+  background: rgba(12,12,12,.94);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 23px;
+  box-shadow:
+    0 20px 80px rgba(0,0,0,.35),
+    0 1px 0 rgba(255,255,255,.025) inset;
+  backdrop-filter: blur(16px);
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 620;
+  letter-spacing: -.65px;
+}
+
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #e5e5e5;
+}
+
+input {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 9px;
+  background: var(--input);
+  color: var(--fg);
+  outline: none;
+  transition:
+    border-color .18s ease,
+    background .18s ease,
+    box-shadow .18s ease;
+}
+
+input::placeholder {
+  color: #555;
+}
+
+input:hover {
+  border-color: rgba(255,255,255,.18);
+}
+
+input:focus {
+  border-color: rgba(255,255,255,.45);
+  background: #131313;
+  box-shadow: 0 0 0 3px rgba(255,255,255,.045);
+}
+
+.password-wrap {
+  position: relative;
+}
+
+.password-wrap input {
+  padding-right: 66px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: 0;
+  color: #777;
+  padding: 5px;
+  font-size: 12px;
+  transition: color .15s ease;
+}
+
+.password-toggle:hover {
+  color: white;
+}
+
+.top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.text-button {
+  border: 0;
+  background: transparent;
+  color: #888;
+  padding: 0;
+  font-size: 12px;
+  transition: color .15s ease;
+}
+
+.text-button:hover {
+  color: white;
+}
+
+.primary {
+  width: 100%;
+  height: 42px;
+  border: 1px solid rgba(255,255,255,.85);
+  border-radius: 9px;
+  background: #f5f5f5;
+  color: #080808;
+  font-weight: 650;
+  transition:
+    background .15s ease,
+    transform .15s ease,
+    opacity .15s ease;
+}
+
+.primary:hover:not(:disabled) {
+  background: #dcdcdc;
+}
+
+.primary:active:not(:disabled) {
+  transform: scale(.99);
+}
+
+.primary:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.message {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.message.err {
+  color: var(--err);
+}
+
+.message.ok {
+  color: var(--ok);
+}
+
+.setup-hint {
+  border: 1px solid rgba(248,113,113,.2);
+  border-radius: 9px;
+  padding: 11px 12px;
+  color: #fca5a5;
+  font-size: 12px;
+  background: rgba(248,113,113,.04);
+}
+
+.links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  color: #777;
+  font-size: 12px;
+}
+
+.links .text-button {
+  color: #e5e5e5;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.links .text-button:hover {
+  color: #aaa;
+}
+
+.footer {
+  text-align: center;
+  color: #444;
+  font-size: 11px;
+  margin-top: -8px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 18px;
+  }
+
+  .card {
+    padding: 22px;
+  }
+
+  .wrap {
+    gap: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+  }
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span>Mist</span>
+  </div>
+
+  <main class="card">
+
+    <div class="heading">
+      <h1 id="title">Sign in</h1>
+      <p class="subtitle" id="subtitle">
+        Welcome back. Enter your details to continue.
+      </p>
+    </div>
+
+    <p class="setup-hint" id="setup-hint" hidden>
+      Supabase isn't connected. Check the CONFIG section in this file.
+    </p>
+
+    <!-- Authentication -->
+    <form id="auth-form" novalidate>
+
+      <label id="name-field" hidden>
+        Name
+        <input
+          id="name"
+          type="text"
+          autocomplete="name"
+          placeholder="Your name"
+        >
+      </label>
+
+      <label>
+        Email
+        <input
+          id="email"
+          type="email"
+          autocomplete="email"
+          placeholder="you@example.com"
+          required
+        >
+      </label>
+
+      <label id="password-field">
+        <span class="top-row">
+          <span>Password</span>
+          <button
+            type="button"
+            class="text-button"
+            id="forgot"
+          >
+            Forgot password?
+          </button>
+        </span>
+
+        <div class="password-wrap">
+          <input
+            id="password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="Enter your password"
+          >
+
+          <button
+            type="button"
+            class="password-toggle"
+            id="password-toggle"
+            aria-label="Show password"
+          >
+            Show
+          </button>
+        </div>
+      </label>
+
+      <p class="message err" id="error" role="alert" hidden></p>
+      <p class="message ok" id="notice" role="status" hidden></p>
+
+      <button class="primary" id="submit" type="submit">
+        Sign in
+      </button>
+
+    </form>
+
+    <!-- Password recovery -->
+    <form id="new-password-form" hidden novalidate>
+
+      <label>
+        New password
+
+        <div class="password-wrap">
+          <input
+            id="new-password"
+            type="password"
+            autocomplete="new-password"
+            placeholder="At least 6 characters"
+          >
+
+          <button
+            type="button"
+            class="password-toggle"
+            id="new-password-toggle"
+            aria-label="Show new password"
+          >
+            Show
+          </button>
+        </div>
+      </label>
+
+      <p class="message err" id="np-error" role="alert" hidden></p>
+
+      <button class="primary" id="np-submit" type="submit">
+        Update password
+      </button>
+
+    </form>
+
+    <!-- Signed in -->
+    <div
+      id="signed-in"
+      hidden
+      style="display:flex;flex-direction:column;gap:16px"
+    >
+      <p class="message ok" id="signed-in-msg"></p>
+
+      <button class="primary" id="signout" type="button">
+        Sign out
+      </button>
+    </div>
+
+  </main>
+
+  <div class="links" id="links">
+    <span id="toggle-label">New to Mist?</span>
+
+    <button class="text-button" id="toggle" type="button">
+      Create an account
+    </button>
+  </div>
+
+  <div class="footer">
+    Mist · Secure account access
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+
+<script>
+// ─────────────────────────────────────────
+// SUPABASE CONFIGURATION
+// ─────────────────────────────────────────
+
+const CONFIG = {
+  url: "https://vjylyiqksvagmelyxwdf.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqeWx5aXFrc3ZhZ21lbHl4d2RmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU2NDM2NDUsImV4cCI6MjExMTIxOTY0NX0.u5Xm8C5BhrpglbXJX33lfti1ZUFH25fSiTmSsjcaHf8",
+};
+
+// ─────────────────────────────────────────
+// SETUP
+// ─────────────────────────────────────────
+
+const $ = (id) => document.getElementById(id);
+
+const configured =
+  CONFIG.url.startsWith("https://") &&
+  !CONFIG.url.includes("YOUR-PROJECT") &&
+  CONFIG.anonKey.length > 20 &&
+  !CONFIG.anonKey.startsWith("YOUR-");
+
+const linkType = new URLSearchParams(
+  location.hash.slice(1)
+).get("type");
+
+let sb = null;
+
+if (configured && window.supabase) {
+  sb = window.supabase.createClient(
+    CONFIG.url,
+    CONFIG.anonKey
+  );
+} else {
+  $("setup-hint").hidden = false;
+}
+
+let mode = "signin";
+
+const COPY = {
+  signin: [
+    "Sign in",
+    "Welcome back. Enter your details to continue.",
+    "Sign in",
+    "New to Mist?",
+    "Create an account"
+  ],
+
+  signup: [
+    "Create account",
+    "Create your account to get started.",
+    "Create account",
+    "Already have an account?",
+    "Sign in"
+  ],
+
+  reset: [
+    "Reset password",
+    "We'll send you a link to reset your password.",
+    "Send reset link",
+    "Remember your password?",
+    "Sign in"
+  ]
+};
+
+// ─────────────────────────────────────────
+// UI HELPERS
+// ─────────────────────────────────────────
+
+function show(id, text) {
+  const el = $(id);
+
+  el.hidden = !text;
+  el.textContent = text || "";
+}
+
+function setMode(next) {
+  mode = next;
+
+  const [
+    title,
+    subtitle,
+    action,
+    toggleLabel,
+    toggleText
+  ] = COPY[mode];
+
+  $("title").textContent = title;
+  $("subtitle").textContent = subtitle;
+  $("submit").textContent = action;
+
+  $("toggle-label").textContent = toggleLabel;
+  $("toggle").textContent = toggleText;
+
+  $("name-field").hidden = mode !== "signup";
+  $("password-field").hidden = mode === "reset";
+  $("forgot").hidden = mode !== "signin";
+
+  $("password").autocomplete =
+    mode === "signup"
+      ? "new-password"
+      : "current-password";
+
+  show("error");
+  show("notice");
+}
+
+function view(name) {
+  $("auth-form").hidden = name !== "auth";
+  $("new-password-form").hidden = name !== "new-password";
+  $("signed-in").hidden = name !== "signed-in";
+
+  $("links").hidden = name !== "auth";
+
+  if (name === "new-password") {
+    $("title").textContent = "Choose a new password";
+    $("subtitle").textContent =
+      "Create a new password for your account.";
+  }
+
+  if (name === "signed-in") {
+    $("title").textContent = "You're in";
+    $("subtitle").textContent = "";
+  }
+
+  if (name === "auth") {
+    setMode(mode);
+  }
+}
+
+function friendly(err) {
+  const message =
+    (err && err.message) || "Something went wrong.";
+
+  if (message === "Invalid login credentials") {
+    return "Incorrect email or password.";
+  }
+
+  if (message === "Email not confirmed") {
+    return "Please confirm your email before signing in.";
+  }
+
+  if (message.toLowerCase().includes("rate limit")) {
+    return "Too many attempts. Please wait a moment.";
+  }
+
+  return message;
+}
+
+// ─────────────────────────────────────────
+// PASSWORD VISIBILITY
+// ─────────────────────────────────────────
+
+function setupPasswordToggle(inputId, buttonId) {
+  const input = $(inputId);
+  const button = $(buttonId);
+
+  button.addEventListener("click", () => {
+    const visible = input.type === "password";
+
+    input.type = visible ? "text" : "password";
+    button.textContent = visible ? "Hide" : "Show";
+
+    button.setAttribute(
+      "aria-label",
+      visible ? "Hide password" : "Show password"
+    );
+  });
+}
+
+setupPasswordToggle("password", "password-toggle");
+setupPasswordToggle("new-password", "new-password-toggle");
+
+// ─────────────────────────────────────────
+// NAVIGATION
+// ─────────────────────────────────────────
+
+$("toggle").addEventListener("click", () => {
+  setMode(mode === "signin" ? "signup" : "signin");
+});
+
+$("forgot").addEventListener("click", () => {
+  setMode("reset");
+});
+
+// ─────────────────────────────────────────
+// SIGN IN / SIGN UP / RESET
+// ─────────────────────────────────────────
+
+$("auth-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  if (!sb) {
+    return show(
+      "error",
+      "Supabase isn't connected. Check your configuration."
+    );
+  }
+
+  const email = $("email").value.trim();
+  const password = $("password").value;
+
+  show("error");
+  show("notice");
+
+  $("submit").disabled = true;
+
+  try {
+    if (mode === "signin") {
+      const { error } = await sb.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) throw error;
+    }
+
+    else if (mode === "signup") {
+      if (password.length < 6) {
+        throw new Error(
+          "Password must be at least 6 characters."
+        );
+      }
+
+      const { data, error } = await sb.auth.signUp({
+        email,
+        password,
+
+        options: {
+          data: {
+            name: $("name").value.trim()
+          },
+
+          emailRedirectTo:
+            location.href.split("#")[0]
+        }
+      });
+
+      if (error) throw error;
+
+      if (!data.session) {
+        setMode("signin");
+
+        show(
+          "notice",
+          "Account created. Check your email to confirm your account."
+        );
+      }
+    }
+
+    else if (mode === "reset") {
+      const { error } =
+        await sb.auth.resetPasswordForEmail(email, {
+          redirectTo: location.href.split("#")[0]
+        });
+
+      if (error) throw error;
+
+      show(
+        "notice",
+        "If an account exists for that email, a reset link is on its way."
+      );
+    }
+
+  } catch (err) {
+    show("error", friendly(err));
+
+  } finally {
+    $("submit").disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────
+// UPDATE PASSWORD
+// ─────────────────────────────────────────
+
+$("new-password-form").addEventListener(
+  "submit",
+  async (e) => {
+    e.preventDefault();
+
+    if (!sb) {
+      return show("np-error", "Supabase isn't connected.");
+    }
+
+    const password = $("new-password").value;
+
+    show("np-error");
+
+    if (password.length < 6) {
+      return show(
+        "np-error",
+        "Password must be at least 6 characters."
+      );
+    }
+
+    $("np-submit").disabled = true;
+
+    try {
+      const { error } = await sb.auth.updateUser({
+        password
+      });
+
+      if (error) throw error;
+
+      view("signed-in");
+
+      $("signed-in-msg").textContent =
+        "Your password has been updated successfully.";
+
+    } catch (err) {
+      show("np-error", friendly(err));
+
+    } finally {
+      $("np-submit").disabled = false;
+    }
+  }
+);
+
+// ─────────────────────────────────────────
+// SIGN OUT
+// ─────────────────────────────────────────
+
+$("signout").addEventListener("click", async () => {
+  if (!sb) return;
+
+  const { error } = await sb.auth.signOut();
+
+  if (error) {
+    show("error", friendly(error));
+  }
+});
+
+// ─────────────────────────────────────────
+// SESSION STATE
+// ─────────────────────────────────────────
+
+if (sb) {
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") {
+      view("new-password");
+      return;
+    }
+
+    if (session) {
+      view("signed-in");
+
+      const user =
+        session.user.user_metadata?.name ||
+        session.user.email;
+
+      $("signed-in-msg").textContent =
+        linkType === "signup"
+          ? `Email confirmed. Welcome to Mist, ${user}.`
+          : `Signed in as ${user}. You can now use Mist.`;
+
+    } else {
+      view("auth");
+    }
+  });
+
+} else {
+  view("auth");
+}
+
+setMode("signin");
+</script>
+</body>
+</html>

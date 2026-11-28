@@ -13351,7 +13351,14 @@ end
     local set_model_transparency = function(model, transparency)
         if not model then return end
         for _, part in model:GetDescendants() do
-            if part:IsA("BasePart") then part.Transparency = transparency end
+            if part:IsA("BasePart") then
+                -- Tool handles are intentionally left visible. They are mirrored to the
+                -- real character separately so an equipped Tool remains visible during Reanim.
+                local toolAncestor = part:FindFirstAncestorOfClass("Tool")
+                if not toolAncestor then
+                    part.Transparency = transparency
+                end
+            end
         end
     end
 
@@ -13737,6 +13744,31 @@ end
                 end)
             end
 
+            local function monoReanimMirrorHeldTools(realModel, cloneModel)
+                if not realModel or not cloneModel or not realModel.Parent or not cloneModel.Parent then return end
+                local realTools = {}
+                for _, obj in ipairs(realModel:GetChildren()) do
+                    if obj:IsA("Tool") then
+                        realTools[obj.Name] = obj
+                    end
+                end
+                for _, tool in ipairs(cloneModel:GetChildren()) do
+                    if tool:IsA("Tool") then
+                        local cloneHandle = tool:FindFirstChild("Handle")
+                        local realTool = realTools[tool.Name]
+                        local realHandle = realTool and realTool:FindFirstChild("Handle")
+                        if cloneHandle and realHandle and cloneHandle:IsA("BasePart") and realHandle:IsA("BasePart") then
+                            pcall(function()
+                                realHandle.CFrame = cloneHandle.CFrame
+                                realHandle.AssemblyLinearVelocity = Vector3.zero
+                                realHandle.AssemblyAngularVelocity = Vector3.zero
+                                realHandle.Transparency = cloneHandle.Transparency
+                            end)
+                        end
+                    end
+                end
+            end
+
             monoReanim.connections.hb = monoReanim.services.run_service.Heartbeat:Connect(
                 function()
                     if real_char and real_char.Parent == nil then
@@ -13814,6 +13846,10 @@ end
                                 end
                             end
                         end
+                        -- Tools are not part of the normal body-part mirror. Keep every equipped
+                        -- tool handle on the real character synced to the reanimated clone so the
+                        -- held tool remains visible to other clients and follows live movement.
+                        monoReanimMirrorHeldTools(real_char, cloned_char)
                         if monoReanim.pairStep then
                             pcall(monoReanim.pairStep, real_char, cloned_char, function(p) return skip[p] or reachSkip[p] or freeSkip[p] end)
                         end
@@ -21884,7 +21920,531 @@ function monoReanimBuildUI()
         BodyArm.refreshLimbControllerUI = refreshLimbControllerUI
         refreshLimbControllerUI()
 
-        bodySectionTitle("POLES", 22)
+        bodySectionTitle("TOOL CONTROLLER", 22)
+
+        local tcCard = Instance.new("Frame")
+        tcCard.Size = UDim2.new(1, 0, 0, 438)
+        tcCard.BackgroundColor3 = REAnimC.surface
+        tcCard.BackgroundTransparency = 0.4
+        tcCard.BorderSizePixel = 0
+        tcCard.LayoutOrder = 22
+        tcCard.Parent = bodyPanel
+        corner(tcCard, 7)
+        stroke(tcCard, REAnimC.borderSoft, 1, 0.55)
+
+        local ToolController = {
+            active = false,
+            bind = nil,
+            capturing = false,
+            toolName = nil,
+            anchor = "RightHand",
+            preset = "Vertical",
+            offset = Vector3.new(0, 0, -1),
+            rotation = Vector3.zero,
+            data = nil,
+        }
+
+        local tcEnableBtn = Instance.new("TextButton")
+        tcEnableBtn.Size = UDim2.new(1, -24, 0, 30)
+        tcEnableBtn.Position = UDim2.new(0, 12, 0, 12)
+        tcEnableBtn.BackgroundColor3 = REAnimC.surface
+        tcEnableBtn.BackgroundTransparency = 0.4
+        tcEnableBtn.Text = "Enable Tool Controller"
+        tcEnableBtn.TextColor3 = REAnimC.text
+        tcEnableBtn.Font = Enum.Font.GothamBold
+        tcEnableBtn.TextSize = 11
+        tcEnableBtn.AutoButtonColor = false
+        tcEnableBtn.Parent = tcCard
+        corner(tcEnableBtn, 7)
+        local tcEnableStroke = stroke(tcEnableBtn, REAnimC.borderSoft, 1, 0.55)
+
+        local tcToolBtn = Instance.new("TextButton")
+        tcToolBtn.Size = UDim2.new(1, -24, 0, 28)
+        tcToolBtn.Position = UDim2.new(0, 12, 0, 48)
+        tcToolBtn.BackgroundColor3 = REAnimC.surface
+        tcToolBtn.BackgroundTransparency = 0.4
+        tcToolBtn.Text = "Tool: None"
+        tcToolBtn.TextColor3 = REAnimC.accent
+        tcToolBtn.Font = Enum.Font.GothamBold
+        tcToolBtn.TextSize = 10
+        tcToolBtn.AutoButtonColor = false
+        tcToolBtn.Parent = tcCard
+        corner(tcToolBtn, 7)
+        stroke(tcToolBtn, REAnimC.borderSoft, 1, 0.55)
+
+        local tcAnchorBtn = Instance.new("TextButton")
+        tcAnchorBtn.Size = UDim2.new(1, -24, 0, 28)
+        tcAnchorBtn.Position = UDim2.new(0, 12, 0, 82)
+        tcAnchorBtn.BackgroundColor3 = REAnimC.surface
+        tcAnchorBtn.BackgroundTransparency = 0.4
+        tcAnchorBtn.Text = "Attach To: Right Hand"
+        tcAnchorBtn.TextColor3 = REAnimC.accent
+        tcAnchorBtn.Font = Enum.Font.GothamBold
+        tcAnchorBtn.TextSize = 10
+        tcAnchorBtn.AutoButtonColor = false
+        tcAnchorBtn.Parent = tcCard
+        corner(tcAnchorBtn, 7)
+        stroke(tcAnchorBtn, REAnimC.borderSoft, 1, 0.55)
+
+        local tcPresetBtn = Instance.new("TextButton")
+        tcPresetBtn.Size = UDim2.new(1, -24, 0, 28)
+        tcPresetBtn.Position = UDim2.new(0, 12, 0, 116)
+        tcPresetBtn.BackgroundColor3 = REAnimC.surface
+        tcPresetBtn.BackgroundTransparency = 0.4
+        tcPresetBtn.Text = "Orientation: Vertical"
+        tcPresetBtn.TextColor3 = REAnimC.accent
+        tcPresetBtn.Font = Enum.Font.GothamBold
+        tcPresetBtn.TextSize = 10
+        tcPresetBtn.AutoButtonColor = false
+        tcPresetBtn.Parent = tcCard
+        corner(tcPresetBtn, 7)
+        stroke(tcPresetBtn, REAnimC.borderSoft, 1, 0.55)
+
+        local tcHint = Instance.new("TextLabel")
+        tcHint.Size = UDim2.new(1, -24, 0, 34)
+        tcHint.Position = UDim2.new(0, 12, 0, 150)
+        tcHint.BackgroundTransparency = 1
+        tcHint.Text = "Attach the Tool to any body part, then place it with X/Y/Z and rotate it with Pitch/Yaw/Roll. No camera control or first-person mode is used."
+        tcHint.TextColor3 = REAnimC.textDim
+        tcHint.Font = Enum.Font.Gotham
+        tcHint.TextSize = 9
+        tcHint.TextWrapped = true
+        tcHint.TextXAlignment = Enum.TextXAlignment.Left
+        tcHint.TextYAlignment = Enum.TextYAlignment.Top
+        tcHint.Parent = tcCard
+
+        local tcToolIndex = 0
+        local tcSliders = {}
+        local tcSliderConns = {}
+
+        local function tcFindEquippedTools(model)
+            local out = {}
+            if not model then return out end
+            for _, child in ipairs(model:GetChildren()) do
+                if child:IsA("Tool") and child:FindFirstChild("Handle") then
+                    out[#out + 1] = child
+                end
+            end
+            table.sort(out, function(a, b) return a.Name:lower() < b.Name:lower() end)
+            return out
+        end
+
+        local function tcFindSelectedTool(model)
+            local tools = tcFindEquippedTools(model)
+            if #tools == 0 then return nil end
+            if ToolController.toolName then
+                for _, t in ipairs(tools) do
+                    if t.Name == ToolController.toolName then return t end
+                end
+            end
+            tcToolIndex = math.clamp(tcToolIndex, 1, #tools)
+            return tools[tcToolIndex]
+        end
+
+        local tcAnchorNames = {
+            "RightHand", "LeftHand", "RightFoot", "LeftFoot",
+            "RightUpperArm", "LeftUpperArm", "RightUpperLeg", "LeftUpperLeg",
+            "UpperTorso", "LowerTorso", "Head", "HumanoidRootPart",
+        }
+
+        local function tcAnchorLabel(name)
+            local labels = {
+                RightHand="Right Hand", LeftHand="Left Hand", RightFoot="Right Foot", LeftFoot="Left Foot",
+                RightUpperArm="Right Upper Arm", LeftUpperArm="Left Upper Arm",
+                RightUpperLeg="Right Upper Leg", LeftUpperLeg="Left Upper Leg",
+                UpperTorso="Upper Torso", LowerTorso="Lower Torso", HumanoidRootPart="Root Part",
+            }
+            return labels[name] or name
+        end
+
+        local function tcFindAnchor(model, name)
+            if not model then return nil end
+            local p = model:FindFirstChild(name, true)
+            if p and p:IsA("BasePart") then return p end
+            local root = model:FindFirstChild("HumanoidRootPart", true)
+            return root and root:IsA("BasePart") and root or nil
+        end
+
+        local function tcMakeSlider(title, key, axis, minValue, maxValue, step, y)
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(0, 100, 0, 18)
+            label.Position = UDim2.new(0, 12, 0, y)
+            label.BackgroundTransparency = 1
+            label.TextColor3 = REAnimC.text
+            label.Font = Enum.Font.GothamBold
+            label.TextSize = 9
+            label.TextXAlignment = Enum.TextXAlignment.Left
+            label.Parent = tcCard
+
+            local track = Instance.new("Frame")
+            track.Size = UDim2.new(1, -126, 0, 8)
+            track.Position = UDim2.new(0, 108, 0, y + 5)
+            track.BackgroundColor3 = REAnimC.surfaceHi
+            track.BackgroundTransparency = 0.35
+            track.BorderSizePixel = 0
+            track.Parent = tcCard
+            corner(track, 4)
+
+            local fill = Instance.new("Frame")
+            fill.Size = UDim2.new(0.5, 0, 1, 0)
+            fill.BackgroundColor3 = REAnimC.accent
+            fill.BackgroundTransparency = 0.25
+            fill.BorderSizePixel = 0
+            fill.Parent = track
+            corner(fill, 4)
+
+            local knob = Instance.new("Frame")
+            knob.Size = UDim2.new(0, 12, 0, 12)
+            knob.AnchorPoint = Vector2.new(0.5, 0.5)
+            knob.Position = UDim2.new(0.5, 0, 0.5, 0)
+            knob.BackgroundColor3 = REAnimC.text
+            knob.BorderSizePixel = 0
+            knob.Parent = track
+            corner(knob, 6)
+
+            local function getValue()
+                local v = ToolController[key]
+                if typeof(v) == "Vector3" then
+                    if key == "offset" then return v[title:sub(1,1)] or 0 end
+                end
+                return v or 0
+            end
+
+            local function readValue()
+                local v = ToolController[key]
+                return v[axis]
+            end
+            local function writeValue(v)
+                v = math.clamp(math.round(v / step) * step, minValue, maxValue)
+                local cur = ToolController[key]
+                ToolController[key] = Vector3.new(axis == "X" and v or cur.X, axis == "Y" and v or cur.Y, axis == "Z" and v or cur.Z)
+            end
+
+            local function paint()
+                local v = readValue()
+                local scale = math.clamp((v - minValue) / (maxValue - minValue), 0, 1)
+                label.Text = title .. ": " .. (math.abs(v - math.round(v)) < 0.001 and tostring(math.round(v)) or string.format("%.2f", v))
+                fill.Size = UDim2.new(scale, 0, 1, 0)
+                knob.Position = UDim2.new(scale, 0, 0.5, 0)
+            end
+
+            local dragging = false
+            local function setFromInput(input)
+                local w = math.max(1, track.AbsoluteSize.X)
+                local rel = math.clamp(input.Position.X - track.AbsolutePosition.X, 0, w)
+                writeValue(minValue + (rel / w) * (maxValue - minValue))
+                paint()
+                if ToolController.active then
+                    local d = ToolController.data
+                    if d and d.apply then d.apply() end
+                end
+            end
+
+            track.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = true
+                    setFromInput(input)
+                end
+            end)
+            table.insert(tcSliderConns, UserInputService.InputChanged:Connect(function(input)
+                if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+                    setFromInput(input)
+                end
+            end))
+            table.insert(tcSliderConns, UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = false
+                end
+            end))
+
+            tcSliders[#tcSliders + 1] = paint
+            paint()
+        end
+
+        tcMakeSlider("X Position", "offset", "X", -12, 12, 0.05, 194)
+        tcMakeSlider("Y Position", "offset", "Y", -12, 12, 0.05, 220)
+        tcMakeSlider("Z Position", "offset", "Z", -12, 12, 0.05, 246)
+        tcMakeSlider("Pitch", "rotation", "X", -180, 180, 1, 278)
+        tcMakeSlider("Yaw", "rotation", "Y", -180, 180, 1, 304)
+        tcMakeSlider("Roll", "rotation", "Z", -180, 180, 1, 330)
+
+        local tcResetBtn = Instance.new("TextButton")
+        tcResetBtn.Size = UDim2.new(0.5, -15, 0, 26)
+        tcResetBtn.Position = UDim2.new(0, 12, 0, 360)
+        tcResetBtn.BackgroundColor3 = REAnimC.surface
+        tcResetBtn.BackgroundTransparency = 0.35
+        tcResetBtn.Text = "Reset Placement"
+        tcResetBtn.TextColor3 = REAnimC.text
+        tcResetBtn.Font = Enum.Font.GothamBold
+        tcResetBtn.TextSize = 9
+        tcResetBtn.AutoButtonColor = false
+        tcResetBtn.Parent = tcCard
+        corner(tcResetBtn, 7)
+        stroke(tcResetBtn, REAnimC.borderSoft, 1, 0.55)
+
+        local tcBindBtn = Instance.new("TextButton")
+        tcBindBtn.Size = UDim2.new(0.5, -15, 0, 26)
+        tcBindBtn.Position = UDim2.new(0.5, 3, 0, 360)
+        tcBindBtn.BackgroundColor3 = REAnimC.surface
+        tcBindBtn.BackgroundTransparency = 0.35
+        tcBindBtn.Text = "Tool Controller: None"
+        tcBindBtn.TextColor3 = REAnimC.accent
+        tcBindBtn.Font = Enum.Font.GothamBold
+        tcBindBtn.TextSize = 9
+        tcBindBtn.AutoButtonColor = false
+        tcBindBtn.Parent = tcCard
+        corner(tcBindBtn, 7)
+        stroke(tcBindBtn, REAnimC.borderSoft, 1, 0.55)
+
+        local tcStatusLabel = Instance.new("TextLabel")
+        tcStatusLabel.Size = UDim2.new(1, -24, 0, 42)
+        tcStatusLabel.Position = UDim2.new(0, 12, 0, 392)
+        tcStatusLabel.BackgroundTransparency = 1
+        tcStatusLabel.Text = "Status: waiting for an equipped Tool"
+        tcStatusLabel.TextColor3 = REAnimC.textDim
+        tcStatusLabel.Font = Enum.Font.Gotham
+        tcStatusLabel.TextSize = 9
+        tcStatusLabel.TextWrapped = true
+        tcStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+        tcStatusLabel.TextYAlignment = Enum.TextYAlignment.Top
+        tcStatusLabel.Parent = tcCard
+
+        local function tcPaint()
+            if ToolController.active then
+                tcEnableBtn.Text = "Disable Tool Controller"
+                tcEnableBtn.BackgroundColor3 = REAnimC.surfaceHi
+                tcEnableBtn.BackgroundTransparency = 0.15
+                tcEnableBtn.TextColor3 = REAnimC.accent
+                tcEnableStroke.Color = REAnimC.border
+                tcEnableStroke.Transparency = 0.15
+            else
+                tcEnableBtn.Text = "Enable Tool Controller"
+                tcEnableBtn.BackgroundColor3 = REAnimC.surface
+                tcEnableBtn.BackgroundTransparency = 0.4
+                tcEnableBtn.TextColor3 = REAnimC.text
+                tcEnableStroke.Color = REAnimC.borderSoft
+                tcEnableStroke.Transparency = 0.55
+            end
+            tcToolBtn.Text = "Tool: " .. (ToolController.toolName or "None")
+            tcAnchorBtn.Text = "Attach To: " .. tcAnchorLabel(ToolController.anchor)
+            tcPresetBtn.Text = "Orientation: " .. ToolController.preset
+            tcBindBtn.Text = monoReanimBindLabel("Tool Controller", ToolController.bind)
+            tcBindBtn.TextColor3 = REAnimC.accent
+            if ToolController.active and ToolController.data and ToolController.data.tool then
+                tcStatusLabel.Text = "Status: controlling " .. ToolController.data.tool.Name .. "\nAttached to " .. tcAnchorLabel(ToolController.anchor) .. ". Sliders update live."
+            else
+                tcStatusLabel.Text = "Status: waiting for an equipped Tool"
+            end
+            for _, paint in ipairs(tcSliders) do paint() end
+        end
+
+        local function tcApplyPlacement()
+            if not ToolController.active then return end
+            local d = ToolController.data
+            if not d or not d.handle or not d.handle.Parent then return end
+            local anchor = tcFindAnchor(d.model, ToolController.anchor)
+            if not anchor then return end
+            local r = ToolController.rotation
+            local rot = CFrame.Angles(math.rad(r.X), math.rad(r.Y), math.rad(r.Z))
+            d.handle.CFrame = anchor.CFrame * CFrame.new(ToolController.offset) * rot
+        end
+
+        local function tcStop()
+            if not ToolController.active then return end
+            local d = ToolController.data
+            if d then
+                if d.rightGrip and d.rightGrip.Parent then
+                    pcall(function() d.rightGrip.Enabled = d.origGripEnabled end)
+                end
+                if d.handle and d.handle.Parent then
+                    pcall(function()
+                        d.handle.Anchored = d.origAnchored
+                        d.handle.CanCollide = d.origCanCollide
+                        d.handle.CanTouch = d.origCanTouch
+                        d.handle.CanQuery = d.origCanQuery
+                        d.handle.Massless = d.origMassless
+                    end)
+                end
+            end
+            ToolController.data = nil
+            ToolController.active = false
+            tcPaint()
+        end
+
+        local function tcStart()
+            if not (api and api.is_reanimated and api.is_reanimated()) then
+                return false, "Enable Reanim first"
+            end
+            if ToolController.active then return true end
+            local model = getActiveCharacter()
+            if not model then return false, "No character / clone" end
+            local tool = tcFindSelectedTool(model)
+            if not tool then return false, "Equip a Tool first" end
+            local handle = tool:FindFirstChild("Handle")
+            if not handle or not handle:IsA("BasePart") then return false, "Selected Tool has no Handle" end
+
+            if BodyArm.LimbController and BodyArm.LimbController.active then BodyArm.stopLimbController() end
+            if monoHeadCtrlActive then monoHeadCtrlStop() end
+            if monoFreeCam.running then monoFreeCamStop() end
+
+            local rightGrip = tool:FindFirstChild("RightGrip", true)
+            if not rightGrip then rightGrip = model:FindFirstChild("RightGrip", true) end
+            local anchor = tcFindAnchor(model, ToolController.anchor)
+            if not anchor then return false, "Could not find selected attach point" end
+
+            local rel = anchor.CFrame:ToObjectSpace(handle.CFrame)
+            local rx, ry, rz = rel:ToOrientation()
+            ToolController.offset = rel.Position
+            ToolController.rotation = Vector3.new(math.deg(rx), math.deg(ry), math.deg(rz))
+            if ToolController.preset == "Vertical" then
+                ToolController.rotation = Vector3.new(0, ToolController.rotation.Y, ToolController.rotation.Z)
+            end
+
+            local d = {
+                model = model,
+                tool = tool,
+                handle = handle,
+                rightGrip = rightGrip,
+                origGripEnabled = rightGrip and rightGrip.Enabled or nil,
+                origAnchored = handle.Anchored,
+                origCanCollide = handle.CanCollide,
+                origCanTouch = handle.CanTouch,
+                origCanQuery = handle.CanQuery,
+                origMassless = handle.Massless,
+            }
+            d.apply = tcApplyPlacement
+
+            if rightGrip then pcall(function() rightGrip.Enabled = false end) end
+            pcall(function()
+                handle.Anchored = true
+                handle.CanCollide = false
+                handle.CanTouch = false
+                handle.CanQuery = false
+                handle.Massless = true
+            end)
+
+            ToolController.data = d
+            ToolController.toolName = tool.Name
+            ToolController.active = true
+            tcApplyPlacement()
+            tcPaint()
+            return true
+        end
+
+        local function tcCycleTool()
+            if ToolController.active then tcStop() end
+            local model = getActiveCharacter()
+            local tools = tcFindEquippedTools(model)
+            if #tools == 0 then
+                ToolController.toolName = nil
+                tcPaint()
+                monoReanimSay("Tool controller: equip a Tool first")
+                return
+            end
+            tcToolIndex = (tcToolIndex % #tools) + 1
+            ToolController.toolName = tools[tcToolIndex].Name
+            tcPaint()
+        end
+
+        local function tcCycleAnchor()
+            if ToolController.active then tcStop() end
+            local model = getActiveCharacter()
+            local start = 1
+            for i, name in ipairs(tcAnchorNames) do
+                if name == ToolController.anchor then start = i break end
+            end
+            for n = 1, #tcAnchorNames do
+                local i = ((start + n - 1) % #tcAnchorNames) + 1
+                if tcFindAnchor(model, tcAnchorNames[i]) then
+                    ToolController.anchor = tcAnchorNames[i]
+                    break
+                end
+            end
+            tcPaint()
+        end
+
+        local function tcSetPreset(name)
+            ToolController.preset = name
+            if name == "Vertical" then
+                ToolController.rotation = Vector3.new(0, ToolController.rotation.Y, ToolController.rotation.Z)
+            elseif name == "Horizontal" then
+                ToolController.rotation = Vector3.new(90, ToolController.rotation.Y, ToolController.rotation.Z)
+            end
+            if ToolController.active then tcApplyPlacement() end
+            tcPaint()
+        end
+
+        tcEnableBtn.MouseButton1Click:Connect(function()
+            if ToolController.active then
+                tcStop()
+            else
+                local ok, msg = tcStart()
+                if not ok then monoReanimSay("Tool controller: " .. tostring(msg)) end
+            end
+            tcPaint()
+        end)
+
+        tcToolBtn.MouseButton1Click:Connect(tcCycleTool)
+        tcAnchorBtn.MouseButton1Click:Connect(tcCycleAnchor)
+        tcPresetBtn.MouseButton1Click:Connect(function()
+            tcSetPreset(ToolController.preset == "Vertical" and "Horizontal" or "Vertical")
+        end)
+
+        tcResetBtn.MouseButton1Click:Connect(function()
+            ToolController.offset = Vector3.new(0, 0, -1)
+            ToolController.rotation = Vector3.zero
+            ToolController.preset = "Vertical"
+            if ToolController.active then tcApplyPlacement() end
+            tcPaint()
+        end)
+
+        tcBindBtn.MouseButton1Click:Connect(function()
+            if ToolController.capturing then
+                ToolController.capturing = false
+                tcPaint()
+                return
+            end
+            if ToolController.bind then
+                ToolController.bind = nil
+                tcPaint()
+                monoReanimSaveBody()
+                return
+            end
+            ToolController.capturing = true
+            tcBindBtn.Text = "..."
+            tcBindBtn.TextColor3 = REAnimC.accent
+        end)
+
+        -- Keep the controlled Handle attached to the selected body part while the character moves.
+        table.insert(monoReanimBuildConns, RunService.Heartbeat:Connect(function()
+            if not ToolController.active then return end
+            local d = ToolController.data
+            local model = getActiveCharacter()
+            if not d or not d.handle or not d.handle.Parent or not d.tool or not d.tool.Parent or d.tool.Parent ~= model then
+                tcStop()
+                return
+            end
+            if not tcFindAnchor(model, ToolController.anchor) then
+                tcStop()
+                return
+            end
+            pcall(function()
+                d.handle.Anchored = true
+                d.handle.CanCollide = false
+                d.handle.CanTouch = false
+                d.handle.CanQuery = false
+                d.handle.Massless = true
+                tcApplyPlacement()
+            end)
+        end))
+
+        BodyArm.ToolController = ToolController
+        BodyArm.stopToolController = tcStop
+        BodyArm.startToolController = tcStart
+        BodyArm.refreshToolControllerUI = tcPaint
+        tcPaint()
+
+        bodySectionTitle("POLES", 23)
 
         local poleCard = Instance.new("Frame")
         poleCard.Size = UDim2.new(1, 0, 0, 176)
@@ -23213,6 +23773,7 @@ monoReanimStopBody = function()
     BodyArm.stopHeadTracker()
     BodyArm.clearArmLink()
     BodyArm.stopHeadController()
+    if BodyArm.stopToolController then BodyArm.stopToolController() end
 end
 end
 

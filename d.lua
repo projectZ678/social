@@ -523,6 +523,7 @@ monoFreeCam = {
     speed = 64, key = nil, keyConn = nil,
     btn = nil, bindBtn = nil, fill = nil, knob = nil, track = nil, valLabel = nil,
     dragging = false, lastClick = 0, moveConn = nil, endConn = nil,
+    followPart = false, partData = nil,
 }
 monoFreeCamMin = 10
 monoFreeCamMax = 500
@@ -745,6 +746,15 @@ local function monoFreeCamStep(dt)
             end
         end)
     end
+
+    if monoFreeCam.followPart and monoFreeCam.partData then
+        pcall(function()
+            local d = monoFreeCam.partData
+            if d.part and d.part.Parent then
+                d.part.CFrame = cf
+            end
+        end)
+    end
 end
 
 function monoFreeCamStart(followHead, optCF)
@@ -757,6 +767,8 @@ function monoFreeCamStart(followHead, optCF)
     monoFreeCam.rot = Vector2.new(rx, ry)
     monoFreeCam.fov = cam.FieldOfView
     monoFreeCam.navSpeed = 1
+    monoFreeCam.followPart = false
+    monoFreeCam.partData = nil
     monoFreeCam.mouseDelta = Vector2.zero
     for key in pairs(monoFreeCam.keys) do monoFreeCam.keys[key] = 0 end
 
@@ -812,6 +824,8 @@ function monoFreeCamStop()
     monoFreeCam.running = false
     monoFreeCam.followHead = false
     monoFreeCam.headData = nil
+    monoFreeCam.followPart = false
+    monoFreeCam.partData = nil
     monoFreeCam.lastMouse = nil
     for key in pairs(monoFreeCam.keys) do monoFreeCam.keys[key] = 0 end
 end
@@ -16932,7 +16946,7 @@ function monoReanimBuildUI()
     end))
 
     local BodyArm = {
-        ArmStretch = nil, Catapult = { active = false, bind = nil, capturing = false }, FaceAttach = nil, TorsoAim = nil, TorsoHeight = nil, HeadTracker = nil, ArmLink = nil, HeadController = nil,
+        ArmStretch = nil, Catapult = { active = false, bind = nil, capturing = false }, toggleCatapult = nil, refreshCatapultUI = nil, FaceAttach = nil, TorsoAim = nil, TorsoHeight = nil, HeadTracker = nil, ArmLink = nil, HeadController = nil,
         LegStretch = nil :: any, LegAttach = nil :: any, LegLink = nil :: any,
         panel = nil, refreshArmStretchUI = nil, refreshFaceAttachUI = nil, refreshTorsoAimUI = nil,
         refreshLegStretchUI = nil :: any, refreshLegAttachUI = nil :: any,
@@ -16945,6 +16959,7 @@ function monoReanimBuildUI()
         clearArmLink = nil, toggleArmLinkAtCursor = nil, refreshArmLinkUI = nil,
         clearLegLink = nil :: any, toggleLegLinkAtCursor = nil :: any, refreshLegLinkUI = nil :: any,
         stopHeadController = nil, startHeadController = nil, refreshHeadControllerUI = nil,
+        LimbController = nil, stopLimbController = nil, startLimbController = nil, refreshLimbControllerUI = nil,
     }
 
     local function monoReanimBindName(kc)
@@ -17029,6 +17044,11 @@ function monoReanimBuildUI()
         c.legLink = { mode = ll.mode or "One Leg", side = ll.side or "Right", style = ll.style or "Chain", bind = monoReanimBindName(ll.bind) }
         local hcc = BodyArm.HeadController
         c.headController = { bind = monoReanimBindName(hcc and hcc.bind) }
+        local lc = BodyArm.LimbController
+        c.limbController = {
+            part = lc and lc.part or "UpperTorso",
+            bind = monoReanimBindName(lc and lc.bind),
+        }
         reanimSaveConfig()
     end
 
@@ -17085,6 +17105,11 @@ function monoReanimBuildUI()
         BodyArm.ArmLink.bind = monoReanimBindKey(alc.bind)
         local hccc = type(savedConfig.headController) == "table" and savedConfig.headController or {}
         BodyArm.HeadController.bind = monoReanimBindKey(hccc.bind)
+        local lcc = type(savedConfig.limbController) == "table" and savedConfig.limbController or {}
+        if type(lcc.part) == "string" and lcc.part ~= "Head" and lcc.part ~= "LowerTorso" then
+            BodyArm.LimbController.part = lcc.part
+        end
+        BodyArm.LimbController.bind = monoReanimBindKey(lcc.bind)
         if BodyArm.refreshArmStretchUI then BodyArm.refreshArmStretchUI() end
         BodyArm.refreshFaceAttachUI()
         if BodyArm.refreshLegStretchUI then BodyArm.refreshLegStretchUI() end
@@ -17943,6 +17968,10 @@ function monoReanimBuildUI()
             catapultBindBtn.Text = Catapult.capturing and "Press a key..." or monoReanimBindLabel("Catapult", Catapult.bind)
             catapultBindBtn.TextColor3 = Catapult.capturing and REAnimC.text or REAnimC.accent
         end
+        -- The global Reanim input handler lives outside this UI builder scope.
+        -- Publish callbacks on BodyArm so the key-capture and hotkey paths can
+        -- safely update this local UI and invoke the local toggle function.
+        BodyArm.refreshCatapultUI = refreshCatapultUI
 
         local function catapultGroundPoints(model, root)
             local params = RaycastParams.new()
@@ -18048,6 +18077,7 @@ function monoReanimBuildUI()
                 if not ok then monoReanimSay("Catapult: " .. tostring(err)) end
             end
         end
+        BodyArm.toggleCatapult = toggleCatapult
 
         catapultBtn.MouseButton1Click:Connect(toggleCatapult)
         catapultBindBtn.MouseButton1Click:Connect(function()
@@ -21451,6 +21481,9 @@ function monoReanimBuildUI()
                 return false, "Enable Reanim first"
             end
             if HeadController.active then return true end
+            if BodyArm.LimbController and BodyArm.LimbController.active then
+                BodyArm.stopLimbController()
+            end
             local model = getActiveCharacter()
             if not model then return false, "No character / clone" end
             local head = model:FindFirstChild("Head")
@@ -21531,7 +21564,327 @@ function monoReanimBuildUI()
 
         end
 
-    bodySectionTitle("POLES", 21)
+        bodySectionTitle("LIMB CONTROLLER", 21)
+
+        local lcCard = Instance.new("Frame")
+        lcCard.Size = UDim2.new(1, 0, 0, 218)
+        lcCard.BackgroundColor3 = REAnimC.surface
+        lcCard.BackgroundTransparency = 0.4
+        lcCard.BorderSizePixel = 0
+        lcCard.LayoutOrder = 21
+        lcCard.Parent = bodyPanel
+        corner(lcCard, 7)
+        stroke(lcCard, REAnimC.borderSoft, 1, 0.55)
+
+        local LimbController = {
+            active = false,
+            bind = nil,
+            capturing = false,
+            part = "UpperTorso",
+            data = nil,
+        }
+
+        local limbControllerParts = {
+            "UpperTorso",
+            "LeftUpperArm", "LeftLowerArm", "LeftHand",
+            "RightUpperArm", "RightLowerArm", "RightHand",
+            "LeftUpperLeg", "LeftLowerLeg", "LeftFoot",
+            "RightUpperLeg", "RightLowerLeg", "RightFoot",
+        }
+
+        local function limbControllerPartLabel(name)
+            local labels = {
+                UpperTorso = "Upper Torso",
+                LeftUpperArm = "Left Upper Arm", LeftLowerArm = "Left Lower Arm", LeftHand = "Left Hand",
+                RightUpperArm = "Right Upper Arm", RightLowerArm = "Right Lower Arm", RightHand = "Right Hand",
+                LeftUpperLeg = "Left Upper Leg", LeftLowerLeg = "Left Lower Leg", LeftFoot = "Left Foot",
+                RightUpperLeg = "Right Upper Leg", RightLowerLeg = "Right Lower Leg", RightFoot = "Right Foot",
+            }
+            return labels[name] or tostring(name)
+        end
+
+        local lcEnableBtn = Instance.new("TextButton")
+        lcEnableBtn.Size = UDim2.new(1, -24, 0, 30)
+        lcEnableBtn.Position = UDim2.new(0, 12, 0, 12)
+        lcEnableBtn.BackgroundColor3 = REAnimC.surface
+        lcEnableBtn.BackgroundTransparency = 0.4
+        lcEnableBtn.Text = "Enable Limb Controller"
+        lcEnableBtn.TextColor3 = REAnimC.text
+        lcEnableBtn.Font = Enum.Font.GothamBold
+        lcEnableBtn.TextSize = 11
+        lcEnableBtn.AutoButtonColor = false
+        lcEnableBtn.Parent = lcCard
+        corner(lcEnableBtn, 7)
+        local lcEnableStroke = stroke(lcEnableBtn, REAnimC.borderSoft, 1, 0.55)
+
+        local lcPartBtn = Instance.new("TextButton")
+        lcPartBtn.Size = UDim2.new(1, -24, 0, 28)
+        lcPartBtn.Position = UDim2.new(0, 12, 0, 48)
+        lcPartBtn.BackgroundColor3 = REAnimC.surface
+        lcPartBtn.BackgroundTransparency = 0.4
+        lcPartBtn.Text = "Part: Upper Torso"
+        lcPartBtn.TextColor3 = REAnimC.accent
+        lcPartBtn.Font = Enum.Font.GothamBold
+        lcPartBtn.TextSize = 10
+        lcPartBtn.AutoButtonColor = false
+        lcPartBtn.Parent = lcCard
+        corner(lcPartBtn, 7)
+        stroke(lcPartBtn, REAnimC.borderSoft, 1, 0.55)
+
+        local lcBindBtn = Instance.new("TextButton")
+        lcBindBtn.Size = UDim2.new(1, -24, 0, 28)
+        lcBindBtn.Position = UDim2.new(0, 12, 0, 82)
+        lcBindBtn.BackgroundColor3 = REAnimC.surface
+        lcBindBtn.BackgroundTransparency = 0.4
+        lcBindBtn.Text = "Limb Controller: None"
+        lcBindBtn.TextColor3 = REAnimC.accent
+        lcBindBtn.Font = Enum.Font.GothamBold
+        lcBindBtn.TextSize = 10
+        lcBindBtn.AutoButtonColor = false
+        lcBindBtn.Parent = lcCard
+        corner(lcBindBtn, 7)
+        stroke(lcBindBtn, REAnimC.borderSoft, 1, 0.55)
+
+        local lcSpeedLabel = Instance.new("TextLabel")
+        lcSpeedLabel.Size = UDim2.new(1, -24, 0, 16)
+        lcSpeedLabel.Position = UDim2.new(0, 12, 0, 116)
+        lcSpeedLabel.BackgroundTransparency = 1
+        lcSpeedLabel.Text = "SPEED: " .. tostring(monoFreeCam.speed)
+        lcSpeedLabel.TextColor3 = REAnimC.text
+        lcSpeedLabel.Font = Enum.Font.GothamBold
+        lcSpeedLabel.TextSize = 9
+        lcSpeedLabel.TextXAlignment = Enum.TextXAlignment.Left
+        lcSpeedLabel.Parent = lcCard
+
+        local lcTrack = Instance.new("Frame")
+        lcTrack.Size = UDim2.new(1, -24, 0, 6)
+        lcTrack.Position = UDim2.new(0, 12, 0, 136)
+        lcTrack.BackgroundColor3 = REAnimC.input
+        lcTrack.BorderSizePixel = 0
+        lcTrack.Parent = lcCard
+        corner(lcTrack, 3)
+
+        local lcFill = Instance.new("Frame")
+        lcFill.Size = UDim2.new(
+            math.clamp((monoFreeCam.speed - monoFreeCamMin) / (monoFreeCamMax - monoFreeCamMin), 0, 1), 0, 1, 0
+        )
+        lcFill.BackgroundColor3 = REAnimC.accent
+        lcFill.BorderSizePixel = 0
+        lcFill.Parent = lcTrack
+        corner(lcFill, 3)
+
+        local lcKnob = Instance.new("Frame")
+        lcKnob.Size = UDim2.new(0, 12, 0, 12)
+        lcKnob.Position = UDim2.new(
+            math.clamp((monoFreeCam.speed - monoFreeCamMin) / (monoFreeCamMax - monoFreeCamMin), 0, 1), 0, 0.5, 0
+        )
+        lcKnob.AnchorPoint = Vector2.new(0.5, 0.5)
+        lcKnob.BackgroundColor3 = REAnimC.text
+        lcKnob.BorderSizePixel = 0
+        lcKnob.Parent = lcTrack
+        corner(lcKnob, 7)
+
+        local lcHint = Instance.new("TextLabel")
+        lcHint.Size = UDim2.new(1, -24, 0, 54)
+        lcHint.Position = UDim2.new(0, 12, 0, 150)
+        lcHint.BackgroundTransparency = 1
+        lcHint.Text = "Controls one body part at a time with the same free-cam movement as the Head Controller. WASD move, mouse look, Q/E up/down, Shift slow. Head and Lower Torso are intentionally excluded."
+        lcHint.TextColor3 = REAnimC.textDim
+        lcHint.Font = Enum.Font.Gotham
+        lcHint.TextSize = 9
+        lcHint.TextWrapped = true
+        lcHint.TextXAlignment = Enum.TextXAlignment.Left
+        lcHint.TextYAlignment = Enum.TextYAlignment.Top
+        lcHint.Parent = lcCard
+
+        local lcPartIndex = 1
+        for i, n in ipairs(limbControllerParts) do
+            if n == LimbController.part then lcPartIndex = i break end
+        end
+
+        local function refreshLimbControllerUI()
+            if LimbController.active then
+                lcEnableBtn.Text = "Disable Limb Controller"
+                lcEnableBtn.BackgroundColor3 = REAnimC.surfaceHi
+                lcEnableBtn.BackgroundTransparency = 0.15
+                lcEnableBtn.TextColor3 = REAnimC.accent
+                lcEnableStroke.Color = REAnimC.border
+                lcEnableStroke.Transparency = 0.15
+            else
+                lcEnableBtn.Text = "Enable Limb Controller"
+                lcEnableBtn.BackgroundColor3 = REAnimC.surface
+                lcEnableBtn.BackgroundTransparency = 0.4
+                lcEnableBtn.TextColor3 = REAnimC.text
+                lcEnableStroke.Color = REAnimC.borderSoft
+                lcEnableStroke.Transparency = 0.55
+            end
+            lcPartBtn.Text = "Part: " .. limbControllerPartLabel(LimbController.part)
+            lcBindBtn.Text = monoReanimBindLabel("Limb Controller", LimbController.bind)
+            lcBindBtn.TextColor3 = REAnimC.accent
+            local spd = monoFreeCam.speed
+            lcSpeedLabel.Text = "SPEED: " .. tostring(spd)
+            local scale = math.clamp((spd - monoFreeCamMin) / (monoFreeCamMax - monoFreeCamMin), 0, 1)
+            lcFill.Size = UDim2.new(scale, 0, 1, 0)
+            lcKnob.Position = UDim2.new(scale, 0, 0.5, 0)
+        end
+
+        local function cycleLimbControllerPart()
+            if LimbController.active then
+                if BodyArm.stopLimbController then BodyArm.stopLimbController() end
+            end
+            lcPartIndex = (lcPartIndex % #limbControllerParts) + 1
+            LimbController.part = limbControllerParts[lcPartIndex]
+            refreshLimbControllerUI()
+            monoReanimSaveBody()
+        end
+
+        local function findLimbControllerMotor(model, partName)
+            if not model then return nil end
+            for _, m in ipairs(model:GetDescendants()) do
+                if m:IsA("Motor6D") and m.Part1 and m.Part1.Name == partName then
+                    return m
+                end
+            end
+            return nil
+        end
+
+        local function monoLimbCtrlStop()
+            if not LimbController.active then return end
+            monoFreeCamStop()
+            if LimbController.data then
+                local d = LimbController.data
+                pcall(function()
+                    if d.motor and d.motor.Parent then d.motor.Enabled = d.origEnabled end
+                    if d.part and d.part.Parent then d.part.Anchored = d.origAnchored end
+                    if d.part and d.part.Parent and d.origCanCollide ~= nil then d.part.CanCollide = d.origCanCollide end
+                end)
+                LimbController.data = nil
+            end
+            LimbController.active = false
+            monoFreeCam.followPart = false
+            monoFreeCam.partData = nil
+            if refreshLimbControllerUI then refreshLimbControllerUI() end
+        end
+
+        local function monoLimbCtrlStart()
+            if not (api and api.is_reanimated and api.is_reanimated()) then
+                return false, "Enable Reanim first"
+            end
+            if LimbController.active then return true end
+            local model = getActiveCharacter()
+            if not model then return false, "No character / clone" end
+            local part = model:FindFirstChild(LimbController.part, true)
+            if not part or not part:IsA("BasePart") then
+                return false, "Selected limb was not found"
+            end
+            local motor = findLimbControllerMotor(model, LimbController.part)
+            if not motor then
+                return false, "Could not find selected limb joint"
+            end
+
+            if monoHeadCtrlActive then
+                monoHeadCtrlStop()
+            end
+            if monoFreeCam.running then monoFreeCamStop() end
+
+            local origEnabled = motor.Enabled
+            local origAnchored = part.Anchored
+            local origCanCollide = part.CanCollide
+            motor.Enabled = false
+            part.Anchored = true
+
+            LimbController.data = {
+                part = part,
+                motor = motor,
+                origEnabled = origEnabled,
+                origAnchored = origAnchored,
+                origCanCollide = origCanCollide,
+            }
+            LimbController.active = true
+            monoFreeCam.followPart = true
+            monoFreeCam.partData = { part = part, dist = 12 }
+            monoFreeCamStart(false, part.CFrame)
+            monoFreeCam.followPart = true
+            monoFreeCam.partData = { part = part, dist = 12 }
+            return true
+        end
+
+        local function monoLimbCtrlToggle()
+            if LimbController.active then
+                monoLimbCtrlStop()
+            else
+                local ok, msg = monoLimbCtrlStart()
+                if not ok then monoReanimSay("Limb controller: " .. tostring(msg)) end
+            end
+        end
+
+        lcEnableBtn.MouseButton1Click:Connect(function()
+            monoLimbCtrlToggle()
+            refreshLimbControllerUI()
+        end)
+
+        lcPartBtn.MouseButton1Click:Connect(function()
+            cycleLimbControllerPart()
+        end)
+
+        lcBindBtn.MouseButton1Click:Connect(function()
+            if LimbController.capturing then
+                LimbController.capturing = false
+                refreshLimbControllerUI()
+                return
+            end
+            if LimbController.bind then
+                LimbController.bind = nil
+                refreshLimbControllerUI()
+                monoReanimSaveBody()
+                return
+            end
+            LimbController.capturing = true
+            lcBindBtn.Text = "..."
+            lcBindBtn.TextColor3 = REAnimC.accent
+        end)
+
+        local draggingLimbSpeed = false
+        local limbSpeedLastClick = 0
+        local function limbCtrlSpeedFromInput(input)
+            local w = math.max(1, lcTrack.AbsoluteSize.X)
+            local rel = math.clamp(input.Position.X - lcTrack.AbsolutePosition.X, 0, w)
+            monoFreeCamSpeed(monoFreeCamMin + (rel / w) * (monoFreeCamMax - monoFreeCamMin))
+        end
+        lcTrack.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then return end
+            local now = tick()
+            if now - limbSpeedLastClick < 0.3 then
+                limbSpeedLastClick = 0
+                draggingLimbSpeed = false
+                monoFreeCamSpeed(monoFreeCamReset)
+            else
+                limbSpeedLastClick = now
+                draggingLimbSpeed = true
+                limbCtrlSpeedFromInput(input)
+            end
+        end)
+        table.insert(monoReanimBuildConns, UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+                draggingLimbSpeed = false
+            end
+        end))
+        table.insert(monoReanimBuildConns, UserInputService.InputChanged:Connect(function(input)
+            if draggingLimbSpeed and (input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch) then
+                limbCtrlSpeedFromInput(input)
+            end
+        end))
+
+        BodyArm.LimbController = LimbController
+        BodyArm.stopLimbController = monoLimbCtrlStop
+        BodyArm.startLimbController = monoLimbCtrlStart
+        BodyArm.refreshLimbControllerUI = refreshLimbControllerUI
+        refreshLimbControllerUI()
+
+        bodySectionTitle("POLES", 22)
 
         local poleCard = Instance.new("Frame")
         poleCard.Size = UDim2.new(1, 0, 0, 176)
@@ -22473,9 +22826,20 @@ function monoReanimBuildUI()
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
         if BodyArm.Catapult and BodyArm.Catapult.capturing then
-            BodyArm.Catapult.bind = input.KeyCode
-            BodyArm.Catapult.capturing = false
-            refreshCatapultUI()
+            local key = input.KeyCode
+            -- Escape cancels capture; Backspace/Delete clears the bind.
+            if key == Enum.KeyCode.Escape then
+                BodyArm.Catapult.capturing = false
+            elseif key == Enum.KeyCode.Backspace or key == Enum.KeyCode.Delete then
+                BodyArm.Catapult.bind = nil
+                BodyArm.Catapult.capturing = false
+            elseif key ~= Enum.KeyCode.Unknown then
+                BodyArm.Catapult.bind = key
+                BodyArm.Catapult.capturing = false
+            else
+                return
+            end
+            if BodyArm.refreshCatapultUI then BodyArm.refreshCatapultUI() end
             monoReanimSaveBody()
             return
         end
@@ -22552,6 +22916,26 @@ function monoReanimBuildUI()
             return
         end
 
+        if BodyArm.LimbController and BodyArm.LimbController.capturing then
+            BodyArm.LimbController.bind = input.KeyCode
+            BodyArm.LimbController.capturing = false
+            BodyArm.refreshLimbControllerUI()
+            monoReanimSaveBody()
+            return
+        end
+
+        if BodyArm.LimbController and input.KeyCode == BodyArm.LimbController.bind then
+            if BodyArm.LimbController.active then
+                BodyArm.stopLimbController()
+                BodyArm.refreshLimbControllerUI()
+            else
+                local ok, msg = BodyArm.startLimbController()
+                BodyArm.refreshLimbControllerUI()
+                if not ok then monoReanimSay("Limb controller: " .. tostring(msg)) end
+            end
+            return
+        end
+
         if BodyArm.TorsoAim and BodyArm.TorsoAim.capturing then
             if BodyArm.TorsoAim.capturing == "stretch" then
                 BodyArm.TorsoAim.stretchBind = input.KeyCode
@@ -22577,7 +22961,7 @@ function monoReanimBuildUI()
         if gpe then return end
 
         if BodyArm.Catapult and BodyArm.Catapult.bind and input.KeyCode == BodyArm.Catapult.bind then
-            toggleCatapult()
+            if BodyArm.toggleCatapult then BodyArm.toggleCatapult() end
             monoReanimSaveBody()
             return
         end

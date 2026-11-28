@@ -16932,7 +16932,7 @@ function monoReanimBuildUI()
     end))
 
     local BodyArm = {
-        ArmStretch = nil, FaceAttach = nil, TorsoAim = nil, TorsoHeight = nil, HeadTracker = nil, ArmLink = nil, HeadController = nil,
+        ArmStretch = nil, Catapult = { active = false, bind = nil, capturing = false }, FaceAttach = nil, TorsoAim = nil, TorsoHeight = nil, HeadTracker = nil, ArmLink = nil, HeadController = nil,
         LegStretch = nil :: any, LegAttach = nil :: any, LegLink = nil :: any,
         panel = nil, refreshArmStretchUI = nil, refreshFaceAttachUI = nil, refreshTorsoAimUI = nil,
         refreshLegStretchUI = nil :: any, refreshLegAttachUI = nil :: any,
@@ -16978,6 +16978,8 @@ function monoReanimBuildUI()
         local f = BodyArm.FaceAttach
         local t = BodyArm.TorsoAim
         local th = BodyArm.TorsoHeight
+        local cp = BodyArm.Catapult or {}
+        c.catapult = { bind = monoReanimBindName(cp.bind) }
         c.armStretch = {
             mode = a.mode or "Toggle",
             side = a.side or "Right",
@@ -17036,6 +17038,8 @@ function monoReanimBuildUI()
         if a.side == "Left" or a.side == "Right" or a.side == "Both" then BodyArm.ArmStretch.side = a.side end
         if type(a.length) == "number" then BodyArm.ArmStretch.length = math.clamp(math.floor(a.length), 1, 3000) end
         BodyArm.ArmStretch.bind = monoReanimBindKey(a.bind)
+        local cp = type(savedConfig.catapult) == "table" and savedConfig.catapult or {}
+        BodyArm.Catapult.bind = monoReanimBindKey(cp.bind)
         if a.endMode == "Hand" or a.endMode == "Lower Arm" then BodyArm.ArmStretch.endMode = a.endMode end
         BodyArm.ArmStretch.collision = a.collision ~= false
         local f = type(savedConfig.faceAttach) == "table" and savedConfig.faceAttach or {}
@@ -17868,20 +17872,18 @@ function monoReanimBuildUI()
         end))
 
 
-        -- CATAPULT: both arms stay fixed to the ground while the reanimated
-        -- clone moves away. Releasing converts the stored displacement to
-        -- a bounded launch velocity.
-        local Catapult = {
-            active = false,
-            data = nil,
-            anchors = nil,
-            connection = nil,
-            launchScale = 1.5,
-            maxVelocity = 250,
-        }
+        -- CATAPULT: arms anchor below the clone; release launches along its
+        -- facing direction while preserving any existing forward momentum.
+        local Catapult = BodyArm.Catapult
+        Catapult.active = false
+        Catapult.data = nil
+        Catapult.anchors = nil
+        Catapult.connection = nil
+        Catapult.launchForward = 520
+        Catapult.launchUp = 280
 
         local catapultCard = Instance.new("Frame")
-        catapultCard.Size = UDim2.new(1, 0, 0, 112)
+        catapultCard.Size = UDim2.new(1, 0, 0, 142)
         catapultCard.BackgroundColor3 = REAnimC.surface
         catapultCard.BackgroundTransparency = 0.4
         catapultCard.BorderSizePixel = 0
@@ -17895,7 +17897,7 @@ function monoReanimBuildUI()
         catapultBtn.Position = UDim2.new(0, 12, 0, 10)
         catapultBtn.BackgroundColor3 = REAnimC.surface
         catapultBtn.BackgroundTransparency = 0.4
-        catapultBtn.Text = "Enable Catapult"
+        catapultBtn.Text = "Catapult: Off"
         catapultBtn.TextColor3 = REAnimC.text
         catapultBtn.Font = Enum.Font.GothamBold
         catapultBtn.TextSize = 11
@@ -17904,11 +17906,25 @@ function monoReanimBuildUI()
         corner(catapultBtn, 7)
         local catapultStroke = stroke(catapultBtn, REAnimC.borderSoft, 1, 0.55)
 
+        local catapultBindBtn = Instance.new("TextButton")
+        catapultBindBtn.Size = UDim2.new(0, 168, 0, 26)
+        catapultBindBtn.Position = UDim2.new(0, 12, 0, 48)
+        catapultBindBtn.BackgroundColor3 = REAnimC.surface
+        catapultBindBtn.BackgroundTransparency = 0.4
+        catapultBindBtn.Text = "Catapult: None"
+        catapultBindBtn.TextColor3 = REAnimC.accent
+        catapultBindBtn.Font = Enum.Font.GothamBold
+        catapultBindBtn.TextSize = 10
+        catapultBindBtn.AutoButtonColor = false
+        catapultBindBtn.Parent = catapultCard
+        corner(catapultBindBtn, 7)
+        stroke(catapultBindBtn, REAnimC.borderSoft, 1, 0.55)
+
         local catapultInfo = Instance.new("TextLabel")
         catapultInfo.Size = UDim2.new(1, -24, 0, 48)
-        catapultInfo.Position = UDim2.new(0, 12, 0, 48)
+        catapultInfo.Position = UDim2.new(0, 12, 0, 82)
         catapultInfo.BackgroundTransparency = 1
-        catapultInfo.Text = "Both hands anchor to the ground below you. Walk backwards to build stretch, then disable to launch."
+        catapultInfo.Text = "Anchor both hands, move away to build stretch, then toggle off to launch forward and upward."
         catapultInfo.TextColor3 = REAnimC.textDim
         catapultInfo.Font = Enum.Font.Gotham
         catapultInfo.TextSize = 9
@@ -17917,6 +17933,17 @@ function monoReanimBuildUI()
         catapultInfo.TextYAlignment = Enum.TextYAlignment.Top
         catapultInfo.Parent = catapultCard
 
+        local function refreshCatapultUI()
+            catapultBtn.Text = Catapult.active and "Catapult: On (toggle to launch)" or "Catapult: Off"
+            catapultBtn.BackgroundColor3 = Catapult.active and REAnimC.surfaceHi or REAnimC.surface
+            catapultBtn.BackgroundTransparency = Catapult.active and 0.15 or 0.4
+            catapultBtn.TextColor3 = Catapult.active and REAnimC.accent or REAnimC.text
+            catapultStroke.Color = Catapult.active and REAnimC.border or REAnimC.borderSoft
+            catapultStroke.Transparency = Catapult.active and 0.15 or 0.55
+            catapultBindBtn.Text = Catapult.capturing and "Press a key..." or monoReanimBindLabel("Catapult", Catapult.bind)
+            catapultBindBtn.TextColor3 = Catapult.capturing and REAnimC.text or REAnimC.accent
+        end
+
         local function catapultGroundPoints(model, root)
             local params = RaycastParams.new()
             params.FilterType = Enum.RaycastFilterType.Exclude
@@ -17924,7 +17951,6 @@ function monoReanimBuildUI()
             local realChar = api and api.get_real_character and api.get_real_character()
             if realChar then table.insert(exclude, realChar) end
             params.FilterDescendantsInstances = exclude
-
             local hit = workspace:Raycast(root.Position, Vector3.new(0, -1500, 0), params)
             local groundPos
             if hit then
@@ -17932,83 +17958,60 @@ function monoReanimBuildUI()
             else
                 local baseplate = workspace:FindFirstChild("Baseplate")
                 if baseplate and baseplate:IsA("BasePart") then
-                    groundPos = Vector3.new(root.Position.X,
-                        baseplate.Position.Y + baseplate.Size.Y * 0.5, root.Position.Z)
+                    groundPos = Vector3.new(root.Position.X, baseplate.Position.Y + baseplate.Size.Y * 0.5, root.Position.Z)
                 end
             end
             if not groundPos then return nil end
-
             local right = root.CFrame.RightVector
             right = Vector3.new(right.X, 0, right.Z)
             if right.Magnitude < 0.01 then right = Vector3.new(1, 0, 0) end
             right = right.Unit
-            return {
-                groundPos - right * 1.15,
-                groundPos + right * 1.15,
-            }
+            return { groundPos - right * 1.15, groundPos + right * 1.15 }
         end
 
         local function stopCatapult(release)
-            if Catapult.connection then
-                pcall(function() Catapult.connection:Disconnect() end)
-                Catapult.connection = nil
-            end
-
+            if Catapult.connection then pcall(function() Catapult.connection:Disconnect() end); Catapult.connection = nil end
             local model = getActiveCharacter()
             local root = model and model:FindFirstChild("HumanoidRootPart")
-            local launchVelocity = nil
-
+            local launchVelocity
             if release and root and Catapult.anchors then
+                local currentVelocity = root.AssemblyLinearVelocity
+                local look = root.CFrame.LookVector
+                local forward = Vector3.new(look.X, 0, look.Z)
+                if forward.Magnitude < 0.01 then forward = Vector3.new(0, 0, -1) end
+                forward = forward.Unit
+                -- Retain forward travel momentum, but never let a backwards
+                -- velocity or the anchor displacement reverse the launch.
+                local carried = math.max(0, Vector3.new(currentVelocity.X, 0, currentVelocity.Z):Dot(forward))
                 local midpoint = (Catapult.anchors[1] + Catapult.anchors[2]) * 0.5
-                local away = root.Position - midpoint
-                local horizontal = Vector3.new(away.X, 0, away.Z)
-                local stretch = horizontal.Magnitude
-                if stretch > 1 then
-                    local direction = horizontal.Unit
-                    local speed = math.clamp(stretch * Catapult.launchScale, 0, Catapult.maxVelocity)
-                    launchVelocity = direction * speed + Vector3.new(0, math.clamp(stretch * 0.12, 0, 55), 0)
-                end
+                local stretch = (Vector3.new(root.Position.X, 0, root.Position.Z) - Vector3.new(midpoint.X, 0, midpoint.Z)).Magnitude
+                local stretchBoost = math.clamp(stretch * 3, 0, 180)
+                local forwardSpeed = math.clamp(Catapult.launchForward + carried * 0.75 + stretchBoost, 0, 700)
+                local upSpeed = math.clamp(Catapult.launchUp + stretch * 1.5 + math.max(0, currentVelocity.Y) * 0.35, 0, 520)
+                launchVelocity = forward * forwardSpeed + Vector3.new(0, upSpeed, 0)
             end
-
-            for _, d in ipairs(Catapult.data or {}) do
-                pcall(function() restoreArmData(d) end)
-            end
+            for _, d in ipairs(Catapult.data or {}) do pcall(function() restoreArmData(d) end) end
             Catapult.data = nil
             Catapult.anchors = nil
             Catapult.active = false
-
             if launchVelocity and root and root.Parent then
                 pcall(function()
                     root.AssemblyAngularVelocity = Vector3.zero
                     root.AssemblyLinearVelocity = launchVelocity
                 end)
             end
-
-            catapultBtn.Text = "Enable Catapult"
-            catapultBtn.BackgroundColor3 = REAnimC.surface
-            catapultBtn.BackgroundTransparency = 0.4
-            catapultBtn.TextColor3 = REAnimC.text
-            catapultStroke.Color = REAnimC.borderSoft
-            catapultStroke.Transparency = 0.55
+            refreshCatapultUI()
         end
 
         local function startCatapult()
-            if not (api and api.is_reanimated and api.is_reanimated()) then
-                return false, "Enable Reanim first"
-            end
-            if ArmStretch and ArmStretch.active then
-                stopArmStretch()
-                refreshArmStretchUI()
-            end
+            if not (api and api.is_reanimated and api.is_reanimated()) then return false, "Enable Reanim first" end
+            if ArmStretch and ArmStretch.active then stopArmStretch(); refreshArmStretchUI() end
             stopCatapult(false)
-
             local model = getActiveCharacter()
             local root = model and model:FindFirstChild("HumanoidRootPart")
             if not model or not root then return false, "Reanim clone is not ready" end
-
             local anchors = catapultGroundPoints(model, root)
             if not anchors then return false, "No ground found beneath you" end
-
             local built = {}
             for _, side in ipairs({"Left", "Right"}) do
                 local d = buildArmDataForChar(model, side)
@@ -18018,58 +18021,41 @@ function monoReanimBuildUI()
                 end
                 table.insert(built, d)
             end
-
-            Catapult.data = built
-            Catapult.anchors = anchors
-            Catapult.active = true
-
+            Catapult.data, Catapult.anchors, Catapult.active = built, anchors, true
             Catapult.connection = RunService.Heartbeat:Connect(function()
                 if not Catapult.active then return end
-                if not (api and api.is_reanimated and api.is_reanimated()) then
-                    stopCatapult(false)
-                    return
-                end
-
+                if not (api and api.is_reanimated and api.is_reanimated()) then stopCatapult(false); return end
                 local activeModel = getActiveCharacter()
                 local activeRoot = activeModel and activeModel:FindFirstChild("HumanoidRootPart")
-                if not activeRoot then
-                    stopCatapult(false)
-                    return
-                end
-
+                if not activeRoot then stopCatapult(false); return end
                 for i, d in ipairs(Catapult.data or {}) do
                     local origin = getShoulderOrigin(d, activeRoot)
                     local target = Catapult.anchors and Catapult.anchors[i]
-                    if not origin or not target then
-                        stopCatapult(false)
-                        return
-                    end
-
+                    if not origin or not target then stopCatapult(false); return end
                     local delta = target - origin
-                    local distance = math.clamp(delta.Magnitude, 1, 3000)
-                    if delta.Magnitude > 0.01 then
-                        updateStretchArm(d, origin, delta.Unit, distance)
-                    end
+                    if delta.Magnitude > 0.01 then updateStretchArm(d, origin, delta.Unit, math.clamp(delta.Magnitude, 1, 3000)) end
                 end
             end)
-
-            catapultBtn.Text = "Release Catapult"
-            catapultBtn.BackgroundColor3 = REAnimC.surfaceHi
-            catapultBtn.BackgroundTransparency = 0.15
-            catapultBtn.TextColor3 = REAnimC.accent
-            catapultStroke.Color = REAnimC.border
-            catapultStroke.Transparency = 0.15
+            refreshCatapultUI()
             return true
         end
 
-        catapultBtn.MouseButton1Click:Connect(function()
+        local function toggleCatapult()
             if Catapult.active then
                 stopCatapult(true)
             else
                 local ok, err = startCatapult()
                 if not ok then monoReanimSay("Catapult: " .. tostring(err)) end
             end
+        end
+
+        catapultBtn.MouseButton1Click:Connect(toggleCatapult)
+        catapultBindBtn.MouseButton1Click:Connect(function()
+            if Catapult.capturing then Catapult.capturing = false
+            else Catapult.capturing = true end
+            refreshCatapultUI()
         end)
+        refreshCatapultUI()
 
         table.insert(monoReanimBuildConns, LocalPlayer.CharacterRemoving:Connect(function()
             if Catapult.active then stopCatapult(false) end
@@ -22486,6 +22472,14 @@ function monoReanimBuildUI()
     table.insert(monoReanimBuildConns, UserInputService.InputBegan:Connect(function(input, gpe)
         if input.UserInputType ~= Enum.UserInputType.Keyboard then return end
 
+        if BodyArm.Catapult and BodyArm.Catapult.capturing then
+            BodyArm.Catapult.bind = input.KeyCode
+            BodyArm.Catapult.capturing = false
+            refreshCatapultUI()
+            monoReanimSaveBody()
+            return
+        end
+
         if BodyArm.FaceAttach and BodyArm.FaceAttach.capturing then
             BodyArm.FaceAttach.bind = input.KeyCode
             BodyArm.FaceAttach.capturing = false
@@ -22581,6 +22575,12 @@ function monoReanimBuildUI()
             return
         end
         if gpe then return end
+
+        if BodyArm.Catapult and BodyArm.Catapult.bind and input.KeyCode == BodyArm.Catapult.bind then
+            toggleCatapult()
+            monoReanimSaveBody()
+            return
+        end
 
         if BodyArm.FaceAttach and input.KeyCode == BodyArm.FaceAttach.bind then
             BodyArm.toggleFaceAttachAtCursor()
